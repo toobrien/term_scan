@@ -1,6 +1,7 @@
 from enum import IntEnum
 
 class months(IntEnum):
+    __order__ = 'F G H J K M N Q U V X Z'
     F = 0
     G = 1
     H = 2

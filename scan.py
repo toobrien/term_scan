@@ -7,7 +7,6 @@ class scan:
     def __init__(self, scan_def, cursor):
         self.set_name(scan_def["name"])
         self.set_contract(scan_def["contract"])
-        self.set_result(result(self.name, self.contract))
 
         params = scan_def["params"]
         self.set_type(params["type"])
@@ -28,9 +27,6 @@ class scan:
     
     def set_contract(self, contract): self.contract = contract
     def get_contract(self): return self.contract
-
-    def set_result(self, result): self.result = result
-    def get_result(self): return self.result
 
     def set_type(self, type): self.type = type
     def get_type(self): return self.type
@@ -70,10 +66,17 @@ class scan:
                 
 
     def execute(self):
-        result = self.get_result()
+        response = {
+            "name": self.get_name(),
+            "contract": self.get_contract(),
+            "results": []
+        }
+        results = response["results"]
         data_store = self.get_data_store()
+        it = data_store.get_iterator(self.get_legs())
+
+        for match in it:
+            result = data_store.rank(match)
+            results.append(result)
         
-        for row in data_store.get_rows():
-            print(row)
-        
-        return result
+        return response
