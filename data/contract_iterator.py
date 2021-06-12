@@ -119,7 +119,7 @@ class contract_iterator:
         # account for first iteration
         legs = [ (it["current"]["m"], it["current"]["y"]) for it in its[1:] ]
 
-        while (to_inc or to_init):
+        while (True):
             if to_inc:
                 success = self.increment_it(its[to_inc])
                 if success:
@@ -128,17 +128,19 @@ class contract_iterator:
                 else:
                     to_inc -= 1
                     if to_inc == 0:
+                        # outer loop finished
                         raise StopIteration
             elif to_init:
-                if to_init == 1:
-                    raise StopIteration
-                elif to_init > j: 
-                    to_init = None
+                if to_init > j:
+                    # loop N incremented, N+1-M successfully initialized
+                    break
                 else:
                     success = self.init_it(its[to_init], its[to_init - 1])
                     if (success):
                         to_init += 1
                     else:
+                        # initialized into bad range, try incrementing previous 
+                        # loop; refresh output to get rid of bad range
                         refresh = True
                         to_inc = to_init - 1
 
