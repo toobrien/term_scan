@@ -121,8 +121,7 @@ class contract_iterator:
 
         while (True):
             if to_inc:
-                success = self.increment_it(its[to_inc])
-                if success:
+                if(self.increment_it(its[to_inc])):
                     to_init = to_inc + 1
                     to_inc = None
                 else:
@@ -135,8 +134,7 @@ class contract_iterator:
                     # loop N incremented, N+1-M successfully initialized
                     break
                 else:
-                    success = self.init_it(its[to_init], its[to_init - 1])
-                    if (success):
+                    if(self.init_it(its[to_init], its[to_init - 1])):
                         to_init += 1
                     else:
                         # initialized into bad range, try incrementing previous 
@@ -150,12 +148,20 @@ class contract_iterator:
         return legs
 
 if __name__=="__main__":
-    legs = [
-        [ "Q", "Z", "0", "1", "A" ],
-        [ "+1", "Z", "+0", "+1", "B" ]
+    
+    butterfly = [
+        [ "F", "Z", "0", "2", "A" ],
+        [ "+1", "+1", "+0", "+1", "B" ],
+        [ "+0", "+0", "+0", "+0", "B" ],
+        [ "+1", "+1", "+0", "+0", "A" ]
+    ]
+    
+    one_width_calendar = [
+        [ "F", "Z", "0", "2", "A" ],
+        [ "+1", "Z", "+0", "2", "B" ]
     ]
 
-    it = contract_iterator(legs)
+    it = contract_iterator(one_width_calendar)
 
     for match in it:
         print(match)
