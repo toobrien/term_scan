@@ -1,20 +1,11 @@
 class contract_iterator:
-    MONTH_DOMAIN = {
-        "F": 0,
-        "G": 1,
-        "H": 2,
-        "J": 3,
-        "K": 4,
-        "M": 5,
-        "N": 6,
-        "Q": 7,
-        "U": 8,
-        "V": 9,
-        "X": 10,
-        "Z": 11
+    MONTH_DOMAIN = { 
+        "F": 0, "G": 1, "H": 2, "J": 3, "K": 4, "M": 5,
+        "N": 6, "Q": 7, "U": 8, "V": 9, "X": 10, "Z": 11
     }
     # year domain = max contracts listed at one time
     YEAR_DOMAIN = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+    # side-ranging not implemented yet; for now A = long, B = short
     SIDE_DOMAIN = ('A', 'B')
 
     def __init__(self, legs):
@@ -25,6 +16,9 @@ class contract_iterator:
 
     def set_its(self, its): self.its = its
     def get_its(self): return self.its
+
+    def set_finished(self, finished): self.finished = finished
+    def get_finished(self): return self.finished
 
     def in_range(self, cur_vals, m_rng, y_rng):
         return  cur_vals["m"] <= m_rng[1] and \
@@ -82,6 +76,8 @@ class contract_iterator:
         return True
 
     def __iter__(self):
+        self.set_finished(False)
+
         its = [{
             # null leg, for binding front leg
             "id": 0,
@@ -93,7 +89,7 @@ class contract_iterator:
 
         for leg in legs:
             its.append({
-                "current": { "m": None, "y": None },
+                "current": { "m": None, "y": None, "side": leg[4] },
                 "range": { "m": [ None, None ], "y": [ None, None ] },
                 "init": { "m": [ leg[0], leg[1] ], "y": [ leg[2], leg[3] ] },
             })
@@ -108,16 +104,20 @@ class contract_iterator:
         return self
 
     def __next__(self):
+        if self.get_finished(): raise StopIteration
+
         its = self.get_its()
         i = len(its) - 1
         j = i
 
         to_inc = i
         to_init = None
-        refresh = False
 
-        # account for first iteration
-        legs = [ (it["current"]["m"], it["current"]["y"]) for it in its[1:] ]
+        # properly set from previous iteration or init
+        legs = [ 
+            (it["current"]["m"], it["current"]["y"], it["current"]["side"])
+            for it in its[1:] 
+        ]
 
         while (True):
             if to_inc:
@@ -127,8 +127,9 @@ class contract_iterator:
                 else:
                     to_inc -= 1
                     if to_inc == 0:
-                        # outer loop finished
-                        raise StopIteration
+                        # outer loop finished, but latest result valid
+                        self.set_finished(True)
+                        break
             elif to_init:
                 if to_init > j:
                     # loop N incremented, N+1-M successfully initialized
@@ -137,13 +138,9 @@ class contract_iterator:
                     if(self.init_it(its[to_init], its[to_init - 1])):
                         to_init += 1
                     else:
-                        # initialized into bad range, try incrementing previous 
-                        # loop; refresh output to get rid of bad range
-                        refresh = True
+                        # loop initialized into bad range;
+                        # try incrementing previous loop
                         to_inc = to_init - 1
-
-        if refresh:
-            legs = [ (it["current"]["m"], it["current"]["y"]) for it in its[1:] ]
 
         return legs
 
@@ -157,8 +154,8 @@ if __name__=="__main__":
     ]
     
     one_width_calendar = [
-        [ "F", "Z", "0", "2", "A" ],
-        [ "+1", "Z", "+0", "2", "B" ]
+        [ "F", "Z", "0", "9", "A" ],
+        [ "+1", "Z", "0", "9", "B" ],
     ]
 
     it = contract_iterator(one_width_calendar)

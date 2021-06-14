@@ -6,26 +6,32 @@
             "contract": "LN",
             "params": {
                 "type": "calendar",
-                "date_range": [ "2010-01-01", "2025-01-01" ],
-                "result_limit": 5,
+                "data_range": [ "2010-01-01", "2025-01-01" ],
+                "result_limit": null,
                 "legs": [ 
-                    [ "Q", "Z", "0", "1", "A" ],
-                    [ "+1", "Z", "0", "1", "B" ]
+                    [ "F", "Z", "0", "1", "A" ],
+                    [ "+1", "Z", "+0", "1", "B" ]
                 ],
                 "filters": [
-                    { "type": "year", "range": [ 2021, 2022 ] },
-                    { "type": "price", "mode": "percentile", "range": [ 0.9985, 1.0 ] },
-                    { "type": "price", "mode": "percentile", "range": [ 0.0, 0.0015 ] }
+                    { 
+                        "type": "year", 
+                        "range": [ 2021, 2022 ] 
+                    },
+                    { 
+                        "type": "price", 
+                        "mode": "percentile", 
+                        "range": [ [ 0.95, 1.0 ], [ 0.0, 0.05 ] ]
+                    }
                 ]
             }
         },
         {
-            "name": "1-width butterfly",
+            "name": "1-wide butterfly",
             "contract": "ED",
             "params": {
                 "type": "sequence",
-                "date_range": [ "2010-01-01", "2035-01-01" ],
-                "result_limit": 5,
+                "data_range": [ "2010-01-01", "2035-01-01" ],
+                "result_limit": 50,
                 "legs": [
                     [ "0", "10", "A" ],
                     [ "+1", "+1", "B" ],
@@ -34,9 +40,15 @@
                 ]
             },
             "filters": [
-                {"type": "year", "range": [ 2021, 2031 ]},
-                { "type": "price", "mode": "percentile", "range": [ 0.9985, 1.0 ] },
-                { "type": "price", "mode": "percentile", "range": [ 0.0, 0.0015 ] }
+                {
+                    "type": "year", 
+                    "range": [ 2021, 2031 ]
+                },
+                { 
+                    "type": "price",
+                    "mode": "percentile",
+                    "range": [ [ 0.9985, 1.0 ], [ 0.0, 0.0015 ] ]
+                }
             ]
         }
     ]

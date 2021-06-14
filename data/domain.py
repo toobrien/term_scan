@@ -1,5 +1,15 @@
 from enum import IntEnum
 
+MONTH_I2A = [
+    "F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"
+]
+
+SIDE_MAP = {
+    "A": "+",
+    "B": "-"
+}
+
+# not used
 class months(IntEnum):
     __order__ = 'F G H J K M N Q U V X Z'
     F = 0

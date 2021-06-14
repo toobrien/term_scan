@@ -24,5 +24,5 @@ def batch_execute(batch):
 if __name__=="__main__":
     all_results = batch_execute(config["default_scan_batch"])
 
-    for result_set in all_results:
-        print(result_set)
+    #for result_set in all_results:
+    #    print(result_set)
