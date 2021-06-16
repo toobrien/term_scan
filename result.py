@@ -1,5 +1,5 @@
-class result:
 
+class result:
     def __init__(self, contract, id):
         self.set_contract(contract)
         self.set_id(id)

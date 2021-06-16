@@ -1,13 +1,13 @@
-class contract_iterator:
-    MONTH_DOMAIN = { 
-        "F": 0, "G": 1, "H": 2, "J": 3, "K": 4, "M": 5,
-        "N": 6, "Q": 7, "U": 8, "V": 9, "X": 10, "Z": 11
-    }
-    # year domain = max contracts listed at one time
-    YEAR_DOMAIN = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-    # side-ranging not implemented yet; for now A = long, B = short
-    SIDE_DOMAIN = ('A', 'B')
+MONTH_DOMAIN = { 
+    "F": 0, "G": 1, "H": 2, "J": 3, "K": 4, "M": 5,
+    "N": 6, "Q": 7, "U": 8, "V": 9, "X": 10, "Z": 11
+}
+# max contracts listed at one time = 10 years (GE, CL)
+YEAR_DOMAIN = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+# side-ranging not implemented; for now A = long, B = short
+SIDE_DOMAIN = ('A', 'B')
 
+class contract_iterator:
     def __init__(self, legs):
         self.set_legs(legs)
 
@@ -22,9 +22,9 @@ class contract_iterator:
 
     def in_range(self, cur_vals, m_rng, y_rng):
         return  cur_vals["m"] <= m_rng[1] and \
-                cur_vals["m"] <= self.MONTH_DOMAIN["Z"] and \
+                cur_vals["m"] <= MONTH_DOMAIN["Z"] and \
                 cur_vals["y"] <= y_rng[1] and \
-                cur_vals["y"] <= self.YEAR_DOMAIN[-1]
+                cur_vals["y"] <= YEAR_DOMAIN[-1]
 
     def init_it(self, cur, prev):
         # sets cur's range and current values by 
@@ -48,7 +48,7 @@ class contract_iterator:
             if "+" in m_ini[i]:
                 m_rng[i] = prev["current"]["m"] + int(m_ini[i][1:])
             else:
-                m_rng[i] = self.MONTH_DOMAIN[m_ini[i]]
+                m_rng[i] = MONTH_DOMAIN[m_ini[i]]
             if "+" in y_ini[i]:
                 y_rng[i] = prev["current"]["y"] + int(y_ini[i][1:])
             else:

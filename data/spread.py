@@ -2,7 +2,6 @@ from enum import IntEnum
 from data.contracts.contract import contract_row
 
 class spread_row(IntEnum):
-    __order__ = "date id spread days_listed"
     date = 0
     id = 1
     spread = 2
@@ -39,9 +38,9 @@ class spread:
             contract_rows = contract.get_rows()
             
             for row in contract_rows:
-                date = row[0]
-                price = row[1] * sign
-                days_listed = row[2]
+                date = row[contract_row.date]
+                settle = row[contract_row.settle] * sign
+                days_listed = row[contract_row.days_listed]
 
                 try:
                     spread_row = spread_rows[date]
@@ -49,11 +48,11 @@ class spread:
                     spread_rows[date] = [ 0, 0 ]
                     spread_row = spread_rows[date]
                 
-                spread_row[0] += price
+                spread_row[0] += settle
                 spread_row[1] = max(spread_row[1], days_listed)
 
         self.rows = [
-            ( id, date, row[0], row[1] )
+            ( date, id, row[0], row[1] )
             for date, row in spread_rows.items()
         ]
 

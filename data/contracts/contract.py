@@ -1,7 +1,6 @@
 from enum import IntEnum
 
 class contract_row(IntEnum):
-    __order__ = "date settle days_listed"
     date = 0
     settle = 1
     days_listed = 2

@@ -2,14 +2,14 @@ from data.data_store import data_row
 from operator import itemgetter
 from datetime import datetime
 from statistics import stdev, mean
-from math import log
+from math import sqrt
+from json import dumps
 from enum import IntEnum
 
 class spread_set_row(IntEnum):
-        __order__ = 'date id price days_listed vol beta'
         date = 0
         id = 1
-        price = 2
+        settle = 2
         days_listed = 3
         vol = 4
         beta = 5
@@ -17,11 +17,13 @@ class spread_set_row(IntEnum):
 spread_set_index = {
     "date": 0,
     "id": 1,
-    "price": 2,
+    "settle": 2,
     "days_listed": 3,
     "vol": 4,
     "beta": 5
 }
+
+BETA_PERIODS = 30
 
 class spread_set:
     # maximum days since latest data point for 
@@ -46,7 +48,7 @@ class spread_set:
     def set_len(self, len): self.len = len
     def get_len(self): return self.len
     def set_live(self, live): self.live = live
-    def get_live(self): return self.life
+    def get_live(self): return self.live
     def set_latest(self, latest): self.latest = latest
     def get_latest(self): return self.latest
     def set_cols(self, cols): self.cols = cols
@@ -63,13 +65,16 @@ class spread_set:
     # used for filter comparisons.
     def sort_rows(self):
         rows = self.get_rows()
-        rows.sort(itemgetter(spread_set_row.date), reverse = True)
+        rows.sort(
+            key = itemgetter(spread_set_row.date), 
+            reverse = True
+        )
         
         latest_update = datetime.strptime(
             rows[0][spread_set_row.date], 
             "%Y-%m-%d"
         )
-        today = datetime()
+        today = datetime.now()
         
         live = (today - latest_update).days < self.MAX_WINDOW
         self.set_live(live)
@@ -81,114 +86,173 @@ class spread_set:
     def add_stats(self):
         spread_rows = self.get_rows()
 
-        # volatility
+        # vol
+        # ----------
         # x = days_listed
-        # y = price volatility
+        # y = settlement volatility
         ax = {}
 
         for row in spread_rows:
-            x = row[spread_set_row.days_listed]
-            if x not in ax:
-                ax[x] = []
-            ax[x].append(row)
+            dl = row[spread_set_row.days_listed]
+            if dl not in ax:
+                ax[dl] = []
+            ax[dl].append(row)
         
-        for x, y in ax.items():
+        for dl, rows in ax.items():
             try:
-                sigma = stdev([ row[spread_set_row.price] for row in y ])
+                sigma = sqrt(
+                    stdev(
+                        [ row[spread_set_row.settle] for row in rows ]
+                    )
+                )
             except:
                 # not enough points, probably
                 sigma = None
-            for row in y:
+            for row in rows:
                 row[spread_set_row.vol] = sigma
             
-        # beta 
-        # x = log front month return
-        # y = average log spread return
-        # 20 period window
+        # beta
+        # ----------
+        # x = front month return
+        # y = average spread return
+        # 1. compute moving average of length BETA_PERIODS
+        # 2. average by days_listed
         nearest = self.get_data_store().get_nearest_contract()
+        
+        # date: [ spread_rows ]
         y = {}
-        xy = [
-            # [ date, front month return, avg spread return, beta ]
-            [ row[data_row.date], row[data_row.settle], None, None ] 
-            for row in nearest 
-        ] 
 
-        # group spread(set) rows by date
+        # [ date, front month settle, spread settle ]
+        xys = [
+            [ row[data_row.date], row[data_row.settle], None ] 
+            for row in nearest 
+        ]
+
+        # [ date, front month return, spread return ]
+        xyr = []
+
+        # group spread_set rows by date
         for row in spread_rows:
             dt = row[spread_set_row.date]
             if dt not in y:
                 y[dt] = []
-            y[dt].append[row]
+            y[dt].append(row)
 
-        # calculate log returns for front month and spreads
-        for i in range(len(xy)):
-            current = xy[i]
+        # add spread settlements to xys
+        for i in range(len(xys)):
+            current = xys[i]
             dt = current[0]
             if dt in y:
                 current[2] = mean(
                     [ row[spread_set_row.settle] for row in y[dt] ]
                 )
-            if i > 1:
-                prev = xy[i - 1]
-                current[1] = log(current[1] / prev[1])
-                current[2] = log(current[2] / prev[2])
-        
-        # first period is not a valid return
-        xy[0][1] = None
-        xy[0][2] = None
 
+        # compute returns
+        # [ date, front_month_return, spread_return]
+        for i in range(1, len(xys)):
+            current = xys[i]
+            prev = xys[i - 1]
+            if prev[2] and current[2]:
+               xyr.append(
+                   [
+                        current[0],
+                        #(current[1] - prev[1]) / prev[1],
+                        #(current[2] - prev[2]) / prev[2]
+                        current[1] - prev[1],
+                        current[2] - prev[2]
+                   ]
+               )
+
+        # compute beta
         # b =   N*sum(XY) - sum(X)sum(y)
         #       ------------------------
         #       N*sum(X^2) - sum(X)^2
         #       
-        for i in range(len(xy)):
-            if i < 21:
+        for i in range(len(xyr)):
+            if i < BETA_PERIODS:
                 b = None
             else:
-                xy_ = 0
-                x_ = 0
-                y_ = 0
-                x2_ = 0
+                XY = 0
+                X = 0
+                Y = 0
+                X2 = 0
 
-                for j in range(i - 20, i):
-                    current = xy[j]
-                    xy_ += current[1] * current[2]
-                    x_ += current[1]
-                    y_ += current[2]
-                    x2_ += current[1]**2
+                for j in range(i - BETA_PERIODS, i):
+                    current = xyr[j]
+                    XY += current[1] * current[2]
+                    X += current[1]
+                    Y += current[2]
+                    X2 += current[1]**2
 
-                b = (20 * xy_ - x_ * y_) / (20 * x2_ - x_**2)
+                b = (20 * XY - X * Y) / (20 * X2 - X**2)
 
             # propagate to rows
-            dt = xy[0]
+            dt = xyr[i][0]
             for row in y[dt]:
                 row[spread_set_row.beta] = b
 
-    # after determining a live spread, need to build sorted
-    # columns for rank filters
+        # average by days_listed -- reuse ax
+        for dl, rows in ax.items():
+            avg_b = 0.
+            num_rows = len(rows)
+            
+            for i in range(num_rows):
+                b = rows[i][spread_set_row.beta]
+                if (b): avg_b += b
+            
+            avg_b /= num_rows
+
+            for row in rows:
+                row[spread_set_row.beta] = avg_b
+
+
+    # columns used for rank filters
+    # only computed for live spreads
     def init_cols(self):
         rows = self.get_rows()
         cols = self.get_cols()
         for _, i in spread_set_index.items():
-            cols[i] = [ row[i] for row in rows ].sort()
+            cols[i] = [ row[i] for row in rows ]
 
-    # input:    ( date, ( id ), spread, days_listed )
-    # output:   [ date, ( id ), spread, days_listed, vol, beta ]
+        # filter "None" if needed
+        # remove duplicates
+        # shouldn't hurt ranking because *reasons* (?)
+        cols[spread_set_row.days_listed] = list(set(
+            x for x in cols[spread_set_row.days_listed]
+        ))
+        cols[spread_set_row.vol] = list(set(
+            x for x in cols[spread_set_row.vol] if x is not None
+        ))
+        cols[spread_set_row.beta] = list(set(
+            x for x in cols[spread_set_row.beta] if x is not None
+        ))
+
+        # sort
+        for _, i in spread_set_index.items():
+            cols[i].sort()
+            print(dumps(cols[i], indent = 2))
+
+        exit()
+
+    # input (spread_row):    
+    #   ( date, ( id ), spread, days_listed )
+    # output (spread_set_row):   
+    #   [ date, ( id ), spread, days_listed, vol, beta ]
     def add_spread(self, spread):
         self.set_len(self.get_len() + 1)
         rows = self.get_rows()
         spread_rows = spread.get_rows()
-        processed = [
-            [ 
-                row[spread_set_row.date], 
-                row[spread_set_row.id], 
-                row[spread_set_row.price], 
-                row[spread_set_row.days_listed],
-                None, None 
-            ] 
-            for row in spread_rows
-        ]
-        rows.append(processed)
+
+        for row in spread_rows:
+            rows.append(
+                [
+                    row[spread_set_row.date], 
+                    row[spread_set_row.id], 
+                    row[spread_set_row.settle], 
+                    row[spread_set_row.days_listed],
+                    None, None
+                ]
+            )
 
     def __len__(self):
         return self.get_len()

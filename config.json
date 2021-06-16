@@ -18,7 +18,7 @@
                         "range": [ 2021, 2022 ] 
                     },
                     { 
-                        "type": "price", 
+                        "type": "settle", 
                         "mode": "percentile", 
                         "range": [ [ 0.95, 1.0 ], [ 0.0, 0.05 ] ]
                     }
@@ -45,7 +45,7 @@
                     "range": [ 2021, 2031 ]
                 },
                 { 
-                    "type": "price",
+                    "type": "settle",
                     "mode": "percentile",
                     "range": [ [ 0.9985, 1.0 ], [ 0.0, 0.0015 ] ]
                 }
