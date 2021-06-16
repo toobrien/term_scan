@@ -1,10 +1,9 @@
 from data.contracts.contract_store import contract_store
 from data.terms.terms_store import terms_store
-from data.spread_set import SPREAD_INDEX
+from data.spread_set import spread_set_index
 from bisect import bisect_left
 
 class scan:
-    
     def __init__(self, scan_def, cursor):
         self.set_name(scan_def["name"])
         self.set_contract(scan_def["contract"])
@@ -54,8 +53,8 @@ class scan:
         type = filter["type"]
         mode = filter["mode"]
         range = filter["range"]
-        data = spread_set.column(type)
-        i = SPREAD_INDEX[type]
+        i = spread_set_index[type]
+        data = spread_set.get_col(i)
         val = latest[i]
         in_rng = False
 
@@ -80,7 +79,7 @@ class scan:
         }
         results = response["results"]
         result_limit = self.get_result_limit()
-        
+
         data_store = self.get_data_store()
         it = data_store.get_iterator(self.get_legs())
 

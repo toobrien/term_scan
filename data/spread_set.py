@@ -4,7 +4,6 @@ from datetime import datetime
 from statistics import stdev, mean
 from math import log
 from enum import IntEnum
-from numpy import polyfit
 
 class spread_set_row(IntEnum):
         __order__ = 'date id price days_listed vol beta'
@@ -134,7 +133,7 @@ class spread_set:
                 current[1] = log(current[1] / prev[1])
                 current[2] = log(current[2] / prev[2])
         
-        # first month is not valid
+        # first period is not a valid return
         xy[0][1] = None
         xy[0][2] = None
 
