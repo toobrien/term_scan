@@ -48,23 +48,26 @@ class scan:
         
         self.set_data_store(data_store)
 
-    def check_filter(filter, spread_set):
-        latest = spread_set.get_latest()
+    def check_filter(self, filter, spread_set):
         type = filter["type"]
         mode = filter["mode"]
-        range = filter["range"]
+        rng = filter["range"]
+
+        latest = spread_set.get_latest()
         i = spread_set_index[type]
         data = spread_set.get_col(i)
         val = latest[i]
         in_rng = False
 
-        if mode == "rank": 
-            val = bisect_left(val, data) / len(data)
+        if mode == "percentile": 
+            val = bisect_left(data, val) / len(data)
         
-        for j in len(range):
+        for j in range(len(rng)):
             in_rng =    in_rng or \
-                        latest[i] >= range[j][0] and \
-                        latest[i] <= range[j][1]
+                        (
+                            val >= rng[j][0] and
+                            val <= rng[j][1]
+                        )
             if (in_rng):
                 return val
         
@@ -73,9 +76,9 @@ class scan:
     def execute(self):
         filters = self.get_filters()
         response = {
-            "name": self.get_name(),
+            "name":     self.get_name(),
             "contract": self.get_contract(),
-            "results": []
+            "results":  []
         }
         results = response["results"]
         result_limit = self.get_result_limit()
@@ -87,22 +90,21 @@ class scan:
             spread_set = data_store.calculate_spreads(match)
 
             if (spread_set and spread_set.get_live()):
-                spread_set.init_columns()
-                result = {}
+                latest = spread_set.get_latest()
                 pass_all = True
 
-                for fn in filters:
-                    val = self.check_filter(filters[fn], spread_set)
+                for f in filters:
+                    val = self.check_filter(f, spread_set)
 
                     if (not val):
                         # filters are AND'd, ranges are OR'd
                         pass_all = False
                         break
                     else:
-                        result[fn] = val
+                        pass
 
-                if (pass_all): 
-                        results.append(result)
+                if (pass_all):
+                        results.append(latest)
 
             if (result_limit and len(results) >= result_limit): break
         

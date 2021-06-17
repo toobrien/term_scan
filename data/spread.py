@@ -1,5 +1,6 @@
 from enum import IntEnum
 from data.contracts.contract import contract_row
+from sys import maxsize
 
 class spread_row(IntEnum):
     date = 0
@@ -45,22 +46,34 @@ class spread:
                 try:
                     spread_row = spread_rows[date]
                 except KeyError:
-                    spread_rows[date] = [ 0, 0 ]
+                    # [ 
+                    #   accumulated spread value,
+                    #   min_days_listed,
+                    #   num_contracts
+                    # ]
+                    # per date
+                    spread_rows[date] = [ 0, maxsize, 0 ]
                     spread_row = spread_rows[date]
                 
                 spread_row[0] += settle
-                spread_row[1] = max(spread_row[1], days_listed)
+                spread_row[1] = min(spread_row[1], days_listed)
+                spread_row[2] += 1
 
-        self.rows = [
+        self.set_rows([
             ( date, id, row[0], row[1] )
             for date, row in spread_rows.items()
-        ]
+            # filter out days where not all legs were listed
+            if row[2] == len(contracts)
+        ])
 
     def set_id_by_terms(self, terms):
         pass
 
     def set_rows_by_terms(self, terms):
         pass
+
+    def __len__(self):
+        return len(self.get_rows())
 
     def __str__(self):
         return repr(self.id)

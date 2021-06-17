@@ -1,4 +1,4 @@
-from json import loads, dumps
+from json import loads
 from scan import scan
 from sqlite3 import connect
 
@@ -24,5 +24,7 @@ def batch_execute(batch):
 if __name__=="__main__":
     all_results = batch_execute(config["default_scan_batch"])
 
-    #for result_set in all_results:
-    #    print(result_set)
+    for result_set in all_results:
+        print(result_set["name"], result_set["contract"])
+        for result in result_set["results"]:
+            print(result)

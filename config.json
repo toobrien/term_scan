@@ -14,10 +14,6 @@
                 ],
                 "filters": [
                     { 
-                        "type": "year", 
-                        "range": [ 2021, 2022 ] 
-                    },
-                    { 
                         "type": "settle", 
                         "mode": "percentile", 
                         "range": [ [ 0.95, 1.0 ], [ 0.0, 0.05 ] ]
@@ -40,10 +36,6 @@
                 ]
             },
             "filters": [
-                {
-                    "type": "year", 
-                    "range": [ 2021, 2031 ]
-                },
                 { 
                     "type": "settle",
                     "mode": "percentile",

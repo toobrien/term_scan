@@ -3,16 +3,15 @@ from operator import itemgetter
 from datetime import datetime
 from statistics import stdev, mean
 from math import sqrt
-from json import dumps
 from enum import IntEnum
 
 class spread_set_row(IntEnum):
-        date = 0
-        id = 1
-        settle = 2
-        days_listed = 3
-        vol = 4
-        beta = 5
+    date = 0
+    id = 1
+    settle = 2
+    days_listed = 3
+    vol = 4
+    beta = 5
 
 spread_set_index = {
     "date": 0,
@@ -79,6 +78,7 @@ class spread_set:
         live = (today - latest_update).days < self.MAX_WINDOW
         self.set_live(live)
         if (live):
+            self.set_latest(rows[0])
             self.add_stats()
             self.init_cols()
 
@@ -230,9 +230,9 @@ class spread_set:
         # sort
         for _, i in spread_set_index.items():
             cols[i].sort()
-            print(dumps(cols[i], indent = 2))
+            #print(dumps(cols[i], indent = 2))
 
-        exit()
+        #exit()
 
     # input (spread_row):    
     #   ( date, ( id ), spread, days_listed )

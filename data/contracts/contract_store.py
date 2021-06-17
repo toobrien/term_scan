@@ -50,7 +50,7 @@ class contract_store(data_store):
 
         self.set_contracts(contracts)
 
-    # ((1, 1, "A"), 2020) to ("F21", "+")
+    # ((1, 1, "A"), 2020) => ("F21", "+")
     def bind(self, leg, base_year):
         return (
             MONTH_I2A[leg[0]] + str(base_year % 100 + leg[1]), 
@@ -67,6 +67,7 @@ class contract_store(data_store):
             valid_matches = None
 
             try:
+                # (<contract_obj>, "+")
                 valid_matches = [
                     ( contracts[bound[0]], bound[1] )
                     for bound in bound_matches
@@ -78,7 +79,9 @@ class contract_store(data_store):
             s = spread()
             s.set_id_by_contract(valid_matches)
             s.set_rows_by_contract(valid_matches)
-            ss.add_spread(s)
+            
+            if len(s) > 0:
+                ss.add_spread(s)
 
         if len(ss) > 0: 
             ss.sort_rows()
