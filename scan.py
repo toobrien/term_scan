@@ -1,6 +1,7 @@
 from data.contracts.contract_store import contract_store
 from data.terms.terms_store import terms_store
 from data.spread_set import spread_set_index
+from data.spread_set import spread_set_row
 from bisect import bisect_left
 
 class scan:
@@ -85,29 +86,41 @@ class scan:
 
         data_store = self.get_data_store()
         it = data_store.get_iterator(self.get_legs())
+        seen = set()
 
         for match in it:
             spread_set = data_store.calculate_spreads(match)
 
             if (spread_set and spread_set.get_live()):
                 latest = spread_set.get_latest()
+
+                # could remove duplicates in 
+                # data_store.calculate_spreads
+                # but doing it here instead
+                id = latest[spread_set_row.id]
+                if not id in seen:
+                    seen.add(id)
+                else: 
+                    continue
+
+                # check filters
+                # filters are AND'd, ranges are OR'd
                 pass_all = True
 
                 for f in filters:
                     val = self.check_filter(f, spread_set)
 
                     if (not val):
-                        # filters are AND'd, ranges are OR'd
                         pass_all = False
                         break
                     else:
                         pass
 
                 if (pass_all):
-                        results.append(latest)
+                    results.append(latest)
 
             if (result_limit and len(results) >= result_limit): break
-        
+
         if (result_limit):
             response["results"] = results[:result_limit]
 

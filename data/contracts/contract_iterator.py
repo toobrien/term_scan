@@ -142,7 +142,7 @@ class contract_iterator:
                         # try incrementing previous loop
                         to_inc = to_init - 1
 
-        return legs
+        return tuple(legs)
 
 if __name__=="__main__":
     
