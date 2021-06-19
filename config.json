@@ -1,9 +1,9 @@
 {
-    "db_path": "../v2/srf.db",
+    "db_path": "../viewer/srf.db",
     "default_scan_batch": [
         {
             "name": "2-leg calendar",
-            "contract": "LN",
+            "contract": "SM",
             "params": {
                 "type": "calendar",
                 "data_range": [ "2010-01-01", "2025-01-01" ],

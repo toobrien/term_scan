@@ -4,6 +4,8 @@ from datetime import datetime
 from statistics import stdev, mean
 from math import sqrt
 from enum import IntEnum
+from functools import reduce
+from operator import add
 
 class spread_set_row(IntEnum):
     date = 0
@@ -12,6 +14,7 @@ class spread_set_row(IntEnum):
     days_listed = 3
     vol = 4
     beta = 5
+    r_2 = 6
 
 spread_set_index = {
     "date": 0,
@@ -19,10 +22,11 @@ spread_set_index = {
     "settle": 2,
     "days_listed": 3,
     "vol": 4,
-    "beta": 5
+    "beta": 5,
+    "r_2": 6
 }
 
-BETA_PERIODS = 30
+MA_PERIODS = 30
 
 class spread_set:
     # maximum days since latest data point for 
@@ -82,130 +86,155 @@ class spread_set:
             self.add_stats()
             self.init_cols()
 
-    # add vol and beta
-    def add_stats(self):
-        spread_rows = self.get_rows()
-
-        # vol
-        # ----------
-        # x = days_listed
-        # y = settlement volatility
-        ax = {}
-
-        for row in spread_rows:
-            dl = row[spread_set_row.days_listed]
-            if dl not in ax:
-                ax[dl] = []
-            ax[dl].append(row)
+    def get_returns(self, nearest, spreads):
+        x = {}  # front month returns:  { date: return }
+        y = {}  # spread returns:       { id: [ [ date, return ], ... ] }
         
-        for dl, rows in ax.items():
-            try:
-                sigma = sqrt(
-                    stdev(
-                        [ row[spread_set_row.settle] for row in rows ]
-                    )
+        # x
+        for i in range(1, len(nearest)):
+            row = nearest[i]
+            rtn =   row[data_row.settle] - \
+                    nearest[i - 1][data_row.settle]
+            dt = row[data_row.date]
+            if dt not in x:
+                x[dt] = rtn
+
+        # y
+        for id, rows in spreads.items():
+            if id not in y:
+                y[id] = {}
+            y_ = y[id]
+            for i in range(1, len(rows)):
+                cur = rows[i]
+                prev = rows[i] - 1
+                dt = cur[spread_set_row.date]
+                y_.append(
+                    [
+                        dt,
+                        cur[spread_set_row.settle] -
+                        prev[spread_set_row.settle]
+                    ]
                 )
-            except:
-                # not enough points, probably
-                sigma = None
-            for row in rows:
-                row[spread_set_row.vol] = sigma
-            
-        # beta
-        # ----------
-        # x = front month return
-        # y = average spread return
-        # 1. compute moving average of length BETA_PERIODS
-        # 2. average by days_listed
-        nearest = self.get_data_store().get_nearest_contract()
-        
-        # date: [ spread_rows ]
-        y = {}
+            y_.insert(0, [])
 
-        # [ date, front month settle, spread settle ]
-        xys = [
-            [ row[data_row.date], row[data_row.settle], None ] 
-            for row in nearest 
-        ]
+        return (x, y)
 
-        # [ date, front month return, spread return ]
-        xyr = []
 
-        # group spread_set rows by date
-        for row in spread_rows:
-            dt = row[spread_set_row.date]
-            if dt not in y:
-                y[dt] = []
-            y[dt].append(row)
+    # x = front month return
+    # y = spread return
+    def beta(self, spreads, nearest):
+        x, y = self.get_returns(nearest, spreads)
 
-        # add spread settlements to xys
-        for i in range(len(xys)):
-            current = xys[i]
-            dt = current[0]
-            if dt in y:
-                current[2] = mean(
-                    [ row[spread_set_row.settle] for row in y[dt] ]
-                )
-
-        # compute returns
-        # [ date, front_month_return, spread_return]
-        for i in range(1, len(xys)):
-            current = xys[i]
-            prev = xys[i - 1]
-            if prev[2] and current[2]:
-               xyr.append(
-                   [
-                        current[0],
-                        #(current[1] - prev[1]) / prev[1],
-                        #(current[2] - prev[2]) / prev[2]
-                        current[1] - prev[1],
-                        current[2] - prev[2]
-                   ]
-               )
-
-        # compute beta
         # b =   N*sum(XY) - sum(X)sum(y)
         #       ------------------------
         #       N*sum(X^2) - sum(X)^2
         #       
-        for i in range(len(xyr)):
-            if i < BETA_PERIODS:
-                b = None
-            else:
+        for id, rows in y.items():
+            for i in range(1 + MA_PERIODS, len(rows)):
                 XY = 0
                 X = 0
                 Y = 0
                 X2 = 0
 
-                for j in range(i - BETA_PERIODS, i):
-                    current = xyr[j]
-                    XY += current[1] * current[2]
-                    X += current[1]
-                    Y += current[2]
-                    X2 += current[1]**2
+                for j in range(i - MA_PERIODS, i):
+                    y_dt = rows[j][0]
+                    y_rtn = rows[j][1]
+                    
+                    try:
+                        x_rtn = x[y_dt]
+                    except KeyError:
+                        continue
 
-                b = (20 * XY - X * Y) / (20 * X2 - X**2)
+                    XY += y_rtn * x_rtn
+                    X += x_rtn
+                    Y += y_rtn
+                    X2 += x_rtn**2
 
-            # propagate to rows
-            dt = xyr[i][0]
-            for row in y[dt]:
-                row[spread_set_row.beta] = b
+                b = (MA_PERIODS * XY - X * Y) / \
+                    (MA_PERIODS * X2 - X**2)
+                
+                # spreads[id] and y[id] should be sync'd
+                # e.g. spreads[id][1][date] == y[id][1][date]
+                spreads[id][j][spread_set_row.beta] = b
+                
+    # coefficient of determination:
+    # x = front month returns
+    # y = spread returns
+    def r_2(self, spreads, nearest):
+        x, y = self.get_returns(nearest, spreads)
 
-        # average by days_listed -- reuse ax
-        for dl, rows in ax.items():
-            avg_b = 0.
-            num_rows = len(rows)
-            
-            for i in range(num_rows):
-                b = rows[i][spread_set_row.beta]
-                if (b): avg_b += b
-            
-            avg_b /= num_rows
+        # r_2 = (COV(XY) / (STDEV(X) * STDEV(Y)))^2
+        for id, rows in y.items():
+            for i in range(1 + MA_PERIODS, len(rows)):
+                x_ = []
+                y_ = []
+                
+                for j in range(i - MA_PERIODS, i):
+                    y_dt = rows[j][0]
+                    y_rtn = rows[j][1]
 
-            for row in rows:
-                row[spread_set_row.beta] = avg_b
+                    try:
+                        x_rtn = x[y_dt]
+                    except KeyError:
+                        continue
+                
+                    x_.append(x_rtn)
+                    y_.append(y_rtn)
+                
+                x_mean = mean(x_)
+                y_mean = mean(y_)
+                x_sigma = stdev(x_)
+                y_sigma = stdev(y_)
+                cov_xy = reduce(
+                    add, 
+                    [ 
+                        (x_[i] - x_mean) * (y_[i] - y_mean)
+                        for i in range(len(x_))
+                    ]
+                ) / len(x_)
 
+                r_2 = (cov_xy / (x_sigma * y_sigma))**2
 
+            spreads[id][j][spread_set_row.r_2] = r_2
+
+    # price volatility
+    def vol(self, spreads):
+        for _, rows in spreads.items():
+            for i in range(MA_PERIODS, len(rows)):
+                rng = rows[i - MA_PERIODS:i]
+                try:
+                    sigma = sqrt(
+                        stdev(
+                            [ 
+                                row[spread_set_row.settle] 
+                                for row in rng
+                            ]
+                        )
+                    )
+                except:
+                    # not enough points, probably
+                    sigma = None
+
+                for row in rng:
+                    row[spread_set_row.vol] = sigma
+
+    def add_stats(self):
+        spread_rows = self.get_rows()
+        nearest = self.get_data_store().get_nearest_contract()
+        spreads = {}
+
+        # group by contract, already sorted by date
+        for row in spread_rows:
+            id = row[spread_set_row.id]
+            if id not in spreads:
+                spreads[id] = []
+            spreads[id].append(row)
+
+        # add stats to rows via ax
+        self.vol(spreads)
+        self.beta(spreads, nearest)
+        self.r_2(spreads, nearest)
+        
     # columns used for rank filters
     # only computed for live spreads
     def init_cols(self):
@@ -214,18 +243,14 @@ class spread_set:
         for _, i in spread_set_index.items():
             cols[i] = [ row[i] for row in rows ]
 
-        # filter "None" if needed
-        # remove duplicates
-        # shouldn't hurt ranking because *reasons* (?)
-        cols[spread_set_row.days_listed] = list(set(
-            x for x in cols[spread_set_row.days_listed]
-        ))
-        cols[spread_set_row.vol] = list(set(
-            x for x in cols[spread_set_row.vol] if x is not None
-        ))
-        cols[spread_set_row.beta] = list(set(
-            x for x in cols[spread_set_row.beta] if x is not None
-        ))
+        # filter "None"
+        for idx in [ 
+            spread_set_row.days_listed,
+            spread_set_row.vol,
+            spread_set_row.beta,
+            spread_set_row.r_2
+        ]:
+            cols[idx] = list(x for x in cols[idx] if x is not None)
 
         # sort
         for _, i in spread_set_index.items():
@@ -250,7 +275,9 @@ class spread_set:
                     row[spread_set_row.id], 
                     row[spread_set_row.settle], 
                     row[spread_set_row.days_listed],
-                    None, None
+                    None,   # vol
+                    None,   # beta
+                    None    # r_2
                 ]
             )
 
