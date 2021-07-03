@@ -5,8 +5,9 @@ from sys import maxsize
 class spread_row(IntEnum):
     date = 0
     id = 1
-    spread = 2
-    days_listed = 3
+    settle = 2
+    change = 3
+    days_listed = 4
 
 SIDE_MAP = { "+": 1, "-": -1 }
 
@@ -27,7 +28,7 @@ class spread:
             for contract in contracts 
         )
 
-    # spread row format: ( date, id, spread, days_listed )
+    # spread row format: ( date, id, spread, change, days_listed )
     # undefined order
     def set_rows_by_contract(self, contracts):
         id = self.get_id()
@@ -44,7 +45,7 @@ class spread:
                 days_listed = row[contract_row.days_listed]
 
                 try:
-                    spread_row = spread_rows[date]
+                    r = spread_rows[date]
                 except KeyError:
                     # [ 
                     #   accumulated spread value,
@@ -53,18 +54,27 @@ class spread:
                     # ]
                     # per date
                     spread_rows[date] = [ 0, maxsize, 0 ]
-                    spread_row = spread_rows[date]
+                    r = spread_rows[date]
                 
-                spread_row[0] += settle
-                spread_row[1] = min(spread_row[1], days_listed)
-                spread_row[2] += 1
+                r[0] += settle
+                r[1] = min(r[1], days_listed)
+                r[2] += 1
 
-        self.set_rows([
-            ( date, id, row[0], row[1] )
+        spread_rows = [
+            [ date, id, row[0], None, row[1] ]
             for date, row in spread_rows.items()
             # filter out days where not all legs were listed
             if row[2] == len(contracts)
-        ])
+        ]
+
+        # add change
+        spread_rows.sort(key = lambda x: x[spread_row.date] )
+        for i in range(1, len(spread_rows)):
+            spread_rows[i][spread_row.change] = \
+            spread_rows[i][spread_row.settle] - \
+            spread_rows[i - 1][spread_row.settle]
+        
+        self.set_rows(spread_rows)
 
     def set_id_by_terms(self, terms):
         pass

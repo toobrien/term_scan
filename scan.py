@@ -3,6 +3,7 @@ from data.terms.terms_store import terms_store
 from data.spread_set import spread_set_index
 from data.spread_set import spread_set_row
 from bisect import bisect_left
+from datetime import datetime
 
 class scan:
     def __init__(self, scan_def, cursor):
@@ -83,15 +84,20 @@ class scan:
         }
         results = response["results"]
         result_limit = self.get_result_limit()
-
+        stats = [ filter["type"] for filter in filters ]
         data_store = self.get_data_store()
         it = data_store.get_iterator(self.get_legs())
         seen = set()
 
+        start = datetime.now()
+
         for match in it:
-            spread_set = data_store.calculate_spreads(match)
+            spread_set = data_store.get_spread_set(match)
+
+            #print(match)
 
             if (spread_set and spread_set.get_live()):
+                spread_set.add_stats(stats)
                 latest = spread_set.get_latest()
 
                 # could remove duplicates in 
@@ -117,9 +123,11 @@ class scan:
                         pass
 
                 if (pass_all):
-                    results.append(latest)
+                    results.append((match, id))
 
             if (result_limit and len(results) >= result_limit): break
+
+        print("elapsed:", datetime.now() - start)
 
         if (result_limit):
             response["results"] = results[:result_limit]

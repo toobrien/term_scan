@@ -57,7 +57,7 @@ class contract_store(data_store):
             SIDE_MAP[leg[2]]
         )
 
-    def calculate_spreads(self, match):
+    def get_spread_set(self, match):
         contracts = self.get_contracts()
         year_range = self.get_year_range()
         ss = spread_set(match, self)
@@ -83,8 +83,8 @@ class contract_store(data_store):
             if len(s) > 0:
                 ss.add_spread(s)
 
-        if len(ss) > 0: 
-            ss.sort_rows()
+        if len(ss) > 0:
+            ss.organize()
             return ss
         else: 
             return None

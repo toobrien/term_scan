@@ -8,6 +8,11 @@ class data_row(IntEnum):
     date = 3
     settle = 4
     days_listed = 5
+    
+class nearest_row(IntEnum):
+    date = 0
+    settle = 1
+    change = 2
 
 class data_store:
     def __init__(self, contract, range, cursor):
@@ -28,16 +33,32 @@ class data_store:
     def set_nearest_contract(self, contract): self.nearest_contract = contract
     def get_nearest_contract(self): return self.nearest_contract
 
+    # [ [ date, settle, change ], ... ]
     def init_nearest_contract(self):
         rows = self.get_rows()
         current_date = None
-        nearest_contract = [ rows[0] ]
+        nearest_contract = [ 
+            [ 
+                rows[0][data_row.date],
+                rows[0][data_row.settle],
+                None
+            ]
+        ]
 
         for row in rows:
             if row[data_row.date] != current_date:
-                nearest_contract.append(row)
+                nearest_contract.append([
+                    row[data_row.date],
+                    row[data_row.settle],
+                    None
+                ])
                 current_date = row[data_row.date]
         
+        for i in range(1, len(nearest_contract)):
+            nearest_contract[i][nearest_row.change] = \
+            nearest_contract[i][nearest_row.settle] - \
+            nearest_contract[i - 1][nearest_row.settle]
+
         self.set_nearest_contract(nearest_contract)
 
     def init_rows(self):
