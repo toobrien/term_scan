@@ -1,4 +1,5 @@
 from data.data_store import nearest_row
+from window_stats import var, avg, cov
 from datetime import datetime
 from enum import IntEnum
 from functools import reduce
@@ -88,191 +89,8 @@ class spread_set:
         if (live):
             self.set_latest(rows[0])
 
-    # beta: regression coefficient
-    #   - N*sum(XY) - sum(X)sum(y)
-    #     ------------------------
-    #     N*sum(X^2) - sum(X)^2      
-    #   - x = front month return
-    #   - y = spread return
-    def beta(self, x, y, spreads):
-        for id, rows in y.items():
-            for i in range(1 + MA_PERIODS, len(rows)):
-                XY = 0
-                X = 0
-                Y = 0
-                X2 = 0
 
-                for j in range(i - MA_PERIODS, i):
-                    y_dt = rows[j][0]
-                    y_rtn = rows[j][1]
-                    
-                    try:
-                        x_rtn = x[y_dt]
-                    except KeyError:
-                        continue
-
-                    XY += y_rtn * x_rtn
-                    X += x_rtn
-                    Y += y_rtn
-                    X2 += x_rtn**2
-
-                b = (MA_PERIODS * XY - X * Y) / \
-                    (MA_PERIODS * X2 - X**2)
-                
-                # spreads[id] and y[id] should be sync'd
-                # e.g. spreads[id][1][date] == y[id][1][date]
-                spreads[id][j][spread_set_row.beta] = b
-
-                
-    # coefficient of determination:
-    #   - (COV(XY) / (STDEV(X) * STDEV(Y)))^2
-    #   - x = front month returns
-    #   - y = spread returns
-    def r_2(self, x, y, spreads):
-        for id, rows in y.items():
-            for i in range(1 + MA_PERIODS, len(rows)):
-                x_ = []
-                y_ = []
-                
-                for j in range(i - MA_PERIODS, i):
-                    y_dt = rows[j][0]
-                    y_rtn = rows[j][1]
-
-                    try:
-                        x_rtn = x[y_dt]
-                    except KeyError:
-                        continue
-                
-                    x_.append(x_rtn)
-                    y_.append(y_rtn)
-
-                x_mean = mean(x_)
-                y_mean = mean(y_)
-                x_sigma = stdev(x_)
-                y_sigma = stdev(y_)
-
-                if x_sigma <= 0 or y_sigma <=0:
-                    continue
-
-                cov_xy = reduce(
-                    add, 
-                    [ 
-                        (x_[i] - x_mean) * (y_[i] - y_mean)
-                        for i in range(len(x_))
-                    ]
-                ) / len(x_)
-
-                r_2 = (cov_xy / (x_sigma * y_sigma))**2
-                spreads[id][i][spread_set_row.r_2] = r_2
-
-
-    # price volatility
-    def vol(self, spreads):
-        for _, rows in spreads.items():
-            for i in range(MA_PERIODS, len(rows)):
-                rng = rows[i - MA_PERIODS:i]
-                try:
-                    sigma = sqrt(
-                        stdev(
-                            [ 
-                                row[spread_set_row.settle] 
-                                for row in rng
-                            ]
-                        )
-                    )
-                except:
-                    # not enough points, probably
-                    sigma = None
-
-                for row in rng:
-                    row[spread_set_row.vol] = sigma
-
-
-    #   - m_tick is a forecasting, intra-spread statistic
-    #   - m_tick = MA(AVG_IS(C_t * (S_t-1 - M)/ABS(C_t * (S_t-1 - M))))
-    #       where: 
-    #               C_t = change at time t
-    #               M = median
-    #               S_t-1 = settle at time t-1
-    #               MA = lookahead moving average
-    #               AVG_IS = intra-spread average (by days_listed)
-    #   - domain is [-1, 1]
-    #   - -1 means all spreads ticked away from median, 1 all spreads toward
-    def m_tick(self, spreads):
-        self.add_median()
-        median = self.get_median()
-        ticks_by_dl = {}
-
-        # prepare ticks for aggregation
-        for _, spread_rows in spreads.items():
-            for i in range(1, len(spread_rows)):
-                cur = spread_rows[i]
-                prev = spread_rows[i - 1]
-
-                days_listed = int(cur[spread_set_row.days_listed])
-
-                x = cur[spread_set_row.change] * \
-                    (median - prev[spread_set_row.settle])
-                try:
-                    x = x / abs(x)
-                except ZeroDivisionError:
-                    continue
-                
-                if days_listed not in ticks_by_dl:
-                    ticks_by_dl[days_listed] = []
-
-                ticks_by_dl[days_listed].append(x)
-
-        # average ticks across days_listed
-        for dl, ticks in ticks_by_dl.items():
-            if len(ticks) > 0:
-                ticks_by_dl[dl] = mean(ticks)
-        
-        sum = 0
-        dls = list(ticks_by_dl.keys())
-        dls.sort()
-        m_ticks = {}
-
-        # apply moving average
-        # lookahead
-        '''
-        for i in range(len(dls) - MA_PERIODS):
-            cur_dl = dls[i]
-            dl_to_calc = dls[i - MA_PERIODS]
-            if i >= MA_PERIODS:
-                m_ticks[dl_to_calc] = sum / MA_PERIODS
-                sum -= ticks_by_dl[dl_to_calc]
-            sum += ticks_by_dl[cur_dl]
-        '''
-
-        # regular
-        for i in range(len(dls)):
-            cur_dl = dls[i]
-            cur_tick = ticks_by_dl[cur_dl]
-            if i >= MA_PERIODS:
-                m_ticks[cur_dl] = sum / MA_PERIODS
-                prev_tick = ticks_by_dl[dls[i - MA_PERIODS]]
-                sum -= prev_tick
-            sum += cur_tick
-
-
-        # propagate to rows (for visualizing)
-        rows = self.get_rows()
-        for row in rows:
-            dl = row[spread_set_row.days_listed]
-            try:
-                row[spread_set_row.m_tick] = m_ticks[dl]
-            except KeyError:
-                # not all days_listed has a corresponding m_tick
-                continue
-
-        # set column here instead of from rows to prevent
-        # excessive duplicates
-        col = [ m_tick for _, m_tick in m_ticks.items() ].sort()
-        self.set_col(spread_set_row.m_tick, col)
-
-
-    #   - assumes rows sorted ascending by date in organize()
+#   - assumes rows sorted ascending by date in organize()
     #   - vol, beta, and r_2 are look-behind, intra-spread stats
     #   - m_tick is a look-ahead, inter-spread stat
     def add_stats(self, stats):
@@ -324,6 +142,188 @@ class spread_set:
         # now that stats are in the rows, init their cols
         self.init_cols(stats)
 
+
+    # price volatility
+    def vol(self, spreads):
+        for _, rows in spreads.items():
+            for i in range(MA_PERIODS, len(rows)):
+                rng = rows[i - MA_PERIODS:i]
+                try:
+                    sigma = sqrt(
+                        stdev(
+                            [ 
+                                row[spread_set_row.settle] 
+                                for row in rng
+                            ]
+                        )
+                    )
+                except:
+                    # not enough points, probably
+                    sigma = None
+
+                for row in rng:
+                    row[spread_set_row.vol] = sigma
+
+
+    # beta: regression coefficient
+    #   - N*sum(XY) - sum(X)sum(y)
+    #     ------------------------
+    #     N*sum(X^2) - sum(X)^2      
+    #   - x = front month return
+    #   - y = spread return
+    def beta(self, x, y, spreads):
+        for id, rows in y.items():
+            XY = 0
+            X = 0
+            Y = 0
+            X2 = 0
+            x_rtns = []
+            y_rtns = []
+
+            for i in range(len(rows)):
+                y_dt = rows[i][0]
+                y_rtn = rows[i][1]
+                    
+                try:
+                    x_rtn = x[y_dt]
+                except KeyError:
+                    continue
+
+                x_rtns.append(x_rtn)
+                y_rtns.append(y_rtn)
+
+                if i > MA_PERIODS:
+                    x_0 = x_rtns[i - MA_PERIODS]
+                    y_0 = y_rtns[i - MA_PERIODS]
+
+                    XY -= y_0 * x_0
+                    X -= x_0
+                    Y -= y_0
+                    X2 -= x_0**2
+
+                XY += y_rtn * x_rtn
+                X += x_rtn
+                Y += y_rtn
+                X2 += x_rtn**2
+                
+                # spreads[id] and y[id] should be sync'd
+                # e.g. spreads[id][1][date] == y[id][1][date]
+                if i > MA_PERIODS:
+                    b = (MA_PERIODS * XY - X * Y) / \
+                        (MA_PERIODS * X2 - X**2)
+                    
+                    spreads[id][i][spread_set_row.beta] = b
+
+        # TODO: average by dte here
+
+
+    #   - m_tick = MA(AVG_IS(C_t * (S_t-1 - M)/ABS(C_t * (S_t-1 - M))))
+    #       where: 
+    #               C_t = change at time t
+    #               M = median
+    #               S_t-1 = settle at time t-1
+    #               MA = lookahead moving average
+    #               AVG_IS = intra-spread average (by days_listed)
+    #   - domain is [-1, 1]
+    #   - -1 means all spreads ticked away from median, 1 all spreads toward
+    def m_tick(self, spreads):
+        self.add_median()
+        median = self.get_median()
+        ticks_by_dl = {}
+
+        # prepare ticks for aggregation
+        for _, spread_rows in spreads.items():
+            for i in range(1, len(spread_rows)):
+                cur = spread_rows[i]
+                prev = spread_rows[i - 1]
+
+                days_listed = int(cur[spread_set_row.days_listed])
+
+                x = cur[spread_set_row.change] * \
+                    (median - prev[spread_set_row.settle])
+                try:
+                    x = x / abs(x)
+                except ZeroDivisionError:
+                    continue
+                
+                if days_listed not in ticks_by_dl:
+                    ticks_by_dl[days_listed] = []
+
+                ticks_by_dl[days_listed].append(x)
+
+        # average ticks across spreads
+        for dl, ticks in ticks_by_dl.items():
+            if len(ticks) > 0:
+                ticks_by_dl[dl] = mean(ticks)
+        
+        sum = 0
+        dls = list(ticks_by_dl.keys())
+        dls.sort()
+        m_ticks = {}
+
+        # apply moving average
+        for i in range(len(dls)):
+            cur_dl = dls[i]
+            cur_tick = ticks_by_dl[cur_dl]
+            if i >= MA_PERIODS:
+                m_ticks[cur_dl] = sum / MA_PERIODS
+                prev_tick = ticks_by_dl[dls[i - MA_PERIODS]]
+                sum -= prev_tick
+            sum += cur_tick
+
+        # propagate to rows (for visualizing)
+        rows = self.get_rows()
+        for row in rows:
+            dl = row[spread_set_row.days_listed]
+            try:
+                row[spread_set_row.m_tick] = m_ticks[dl]
+            except KeyError:
+                # not all days_listed has a corresponding m_tick
+                continue
+
+        # set column here instead of from rows to prevent
+        # excessive duplicates
+        col = [ m_tick for _, m_tick in m_ticks.items() ].sort()
+        self.set_col(spread_set_row.m_tick, col)
+
+                
+    # coefficient of determination:
+    #   - (COV(XY) / (STDEV(X) * STDEV(Y)))^2
+    #   - x = front month returns:  [ [ dt, settle, change ], ... ]
+    #   - y = spread returns:       { id: [ spread_set_row, ... ], ... }
+    def r_2(self, x, y, spreads):
+        for id, rows in y.items():
+            x_rtns = []
+            y_rtns = []
+            x_var = var(MA_PERIODS)
+            y_var = var(MA_PERIODS)
+            xy_cov = cov(MA_PERIODS)
+
+            for i in range(len(rows)):        
+                y_dt = rows[i][0]
+                y_rtn = rows[i][1]
+
+                try:
+                    x_rtn = x[y_dt]
+                except KeyError:
+                    continue
+                
+                x_rtns.append(x_rtn)
+                y_rtns.append(y_rtn)
+
+                x_sigma = sqrt(x_var.next(x_rtns, i))
+                y_sigma = sqrt(y_var.next(y_rtns, i))
+
+                if x_sigma <= 0 or y_sigma <=0:
+                    continue
+
+                cov_xy = xy_cov(x_rtns, y_rtns, i)
+                r_2 = (cov_xy / (x_sigma * y_sigma))**2
+
+                if i >= MA_PERIODS:
+                    spreads[id][i][spread_set_row.r_2] = r_2
+            
+        # TODO: average by dte here
 
     #   - columns used for rank filters
     #   - only computed for live spreads
