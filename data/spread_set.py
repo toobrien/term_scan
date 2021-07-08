@@ -97,19 +97,24 @@ class spread_set:
         spreads = {}
         dl = {}
 
-        # group rows by id
-        for row in spread_set_rows:
-            id = row[spread_set_row.id]
-            if id not in spreads:
-                spreads[id] = []
-            spreads[id].append(row)
-
         # group rows by days_listed
         for row in spread_set_rows:
             x = int(row[spread_set_row.days_listed])
             if x not in dl:
                 dl[x] = []
             dl[x].append(row)
+
+        # mandatory: settlement median is used in various places
+        self.add_stat("settle", dl)
+        try: stats.remove("settle")
+        except: pass
+
+        # group rows by id
+        for row in spread_set_rows:
+            id = row[spread_set_row.id]
+            if id not in spreads:
+                spreads[id] = []
+            spreads[id].append(row)
 
         # add stats to rows
         if "vol" in stats: 
@@ -145,62 +150,64 @@ class spread_set:
             if "beta" in stats: self.beta(x, y, spreads)
             if "r_2" in stats: self.r_2(x, y, spreads)
         
-        # now that stats are in the rows, init summary statistics
-        for stat in stats:
-            idx = spread_set_index[stat]
-            rows = self.get_rows()
-            vals = sorted(
-                [ 
-                    row[idx] for row in rows
-                    if row[idx] is not None
-                ],
-                key = lambda x: float(x)
-            )
-            
-            # time series
-            # x = days_listed, y = avg value
-            # [ [ x0, y0 ], ..., [ xn, yn ] ] 
-            stat_rows = []
-            for x, rows in dl:
-                avg = mean([ 
-                    row[idx] for row in rows 
-                    if row[idx] is not None
-                ])
-                if len(avg) > 0:
-                    stat_rows.append([x, avg])
-            stat_rows.sort(key = lambda x: x[1] )
+        # rows are fully populated, so add summary statistics
+        for stat in stats: self.add_stat(stat, dl)
 
-            # mean
-            avg = mean(vals)
 
-            # median
-            mid = len(stat_rows) // 2
-            if len(stat_rows) % 2 == 0:
-                median = \
-                    (
-                        stat_rows[mid - 1][1] +\
-                        stat_rows[mid][1]
-                    ) / 2
-            else:
-                median = stat_rows[mid]
-            
-            # stdev
-            sigma = stdev(vals)
-
-            self.set_stat(
-                stat, 
-                {
-                    "rows": stat_rows,
-                    "mean": avg,
-                    "median": median,
-                    "stdev": sigma
-                }
-            )
-                                
-            
-                
-
+    # creates summary statistics
+    # make sure individual rows are populated first
+    # stat: "<name of statistic>"
+    # dl:   { days_listed: [ row_0, row_1, ..., row_n ] }
+    def add_stat(self, stat, dl):
+        idx = spread_set_index[stat]
+        rows = self.get_rows()
+        vals = sorted(
+            [ 
+                row[idx] for row in rows
+                if row[idx] is not None
+            ],
+            key = lambda x: float(x)
+        )
         
+        # time series
+        # x = days_listed, y = avg value
+        # [ [ x0, y0 ], ..., [ xn, yn ] ] 
+        stat_rows = []
+        for x, rows in dl:
+            avg = mean([ 
+                row[idx] for row in rows 
+                if row[idx] is not None
+            ])
+            if len(avg) > 0:
+                stat_rows.append([x, avg])
+        stat_rows.sort(key = lambda x: x[1] )
+
+        # mean
+        avg = mean(vals)
+
+        # median
+        mid = len(stat_rows) // 2
+        if len(stat_rows) % 2 == 0:
+            median = \
+                (
+                    stat_rows[mid - 1][1] +\
+                    stat_rows[mid][1]
+                ) / 2
+        else:
+            median = stat_rows[mid]
+        
+        # stdev
+        sigma = stdev(vals)
+
+        self.set_stat(
+            stat, 
+            {
+                "rows": stat_rows,
+                "mean": avg,
+                "median": median,
+                "stdev": sigma
+            }
+        )
 
 
     # price volatility
@@ -276,8 +283,7 @@ class spread_set:
     #   - domain is [-1, 1]
     #   - -1 means all spreads ticked away from median, 1 all spreads toward
     def m_tick(self, spreads):
-        self.add_median()
-        median = self.get_median()
+        median = self.get_stat["settle"]["median"]
         ticks_by_dl = {}
 
         # prepare ticks for aggregation
@@ -371,42 +377,6 @@ class spread_set:
 
                 if i >= MA_PERIODS:
                     spreads[id][i][spread_set_row.r_2] = r_2
-            
-        # TODO: average by dte here
-
-    #   - columns used for rank filters
-    #   - only computed for live spreads
-    #   - inter-spread stats initialized elsewhere
-    def init_cols(self, indicies):
-        rows = self.get_rows()
-        cols = self.get_cols()
-
-        for idx in indicies:
-            if idx == "m_tick":
-                # set in m_tick() instead
-                continue
-
-            i = spread_set_index[idx]
-            
-            cols[i] = [ 
-                row[i] for row in rows
-                if row[i] is not None
-            ]
-            cols[i].sort(key = lambda x: float(x))
-
-
-    def add_median(self):
-        if self.get_col(spread_set_index["settle"]) == None:
-            self.init_cols(["settle"])
-            
-        settlements = self.get_col(spread_set_row.settle)
-        l = len(settlements)
-        mid = l // 2
-
-        if l % 2 == 0:
-            self.set_median((settlements[mid] + settlements[mid - 1]) / 2)
-        else:
-            self.set_median(settlements[mid])
 
 
     # input:    spread_row
@@ -430,6 +400,7 @@ class spread_set:
                     None    # r_2
                 ]
             )
+
 
     def __len__(self):
         return self.get_len()

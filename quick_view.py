@@ -50,7 +50,7 @@ def create_row(spread_set):
 
     window = date.today() - timedelta(days= 5)
     next_opc = 0.1
-    opc_step = 0.5 / len(spreads)
+    opc_step = 0.6 / len(spreads)
 
     for id, spread in spreads.items():
         latest = date.fromisoformat(spread[-1][i_dt])
@@ -73,7 +73,7 @@ def create_row(spread_set):
         )
 
     # median trace    
-    median = spread_set.get_median()
+    median = spread_set.get_stat["settle"]["median"]
     max_dl = array([row[i_dl] for row in rows]).max(0)
     fig.add_trace(
         go.Scatter(
@@ -85,22 +85,14 @@ def create_row(spread_set):
         )
     )
 
-    # m_tick sort and filter
-    mt = {
-        int(row[i_dl]): row[i_mt]
-        for row in rows if row[i_mt] is not None
-    }
-    mt = [ (dl, mt) for dl, mt in mt.items() ]
-    mt.sort(key = lambda x: x[0])
-
-    mx = [ d[0] for d in mt ]
-    my = [ d[1] for d in mt ]
+    # m_tick
+    mt = spread_set.get_stat["m_tick"]["rows"]
 
     # m_tick main
     fig.add_trace(
         go.Scatter(
-            x = mx,
-            y = my,
+            x = [ row[0] for row in mt ],
+            y = [ row[1] for row in mt ],
             name = "m_tick",
             mode = "markers",
             marker = { "color": "#0000FF" }
