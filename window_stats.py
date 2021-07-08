@@ -1,4 +1,4 @@
-from numpy import std, cov
+from numpy import std, cov as npcov
 from numpy.random import randn
 from statistics import stdev
 from math import sqrt, pow
@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 
 # https://stackoverflow.com/questions/14635735/how-to-efficiently-calculate-a-moving-standard-deviation
-class win_var:
+class var:
 
     def __init__(self, win_len):
         self.win_len = win_len
@@ -23,7 +23,7 @@ class win_var:
 
 
     # not working at all
-    def next_(self, x, i):
+    def next_stable(self, x, i):
         x_i = x[i]
 
         if i == 0:
@@ -72,7 +72,7 @@ class win_var:
         return var
 
 
-class win_avg:
+class avg:
 
 
     def __init__(self, win_len):
@@ -99,7 +99,7 @@ class win_avg:
 
 
 # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Covariance
-class win_cov:
+class cov:
 
 
     def __init__(self, win_len):
@@ -144,10 +144,10 @@ if __name__ == "__main__":
         x = [ sigma * randn() for i in range(n) ]
         x_ = range(win_len, n)
 
-        mv = win_var(win_len)
+        wv = var(win_len)
 
-        t0 = [ sqrt(mv.next_(x, i)) for i in range(len(x)) ]
-        t1 = [ sqrt(mv.next(x, i)) for i in range(len(x)) ]
+        t0 = [ sqrt(wv.next_(x, i)) for i in range(len(x)) ]
+        t1 = [ sqrt(wv.next(x, i)) for i in range(len(x)) ]
         t2 = [ stdev(x[max(0, i - win_len):i]) for i in range(2, len(x)) ]
         t3 = [ std(x[max(0, i - win_len):i]) for i in range(2, len(x)) ]
 
@@ -172,10 +172,10 @@ if __name__ == "__main__":
         x = [ randn() for i in range(n) ]
         y = [ randn() for i in range(n) ]
 
-        wc = win_cov(win_len)
+        wc = cov(win_len)
         t0 = [ wc.next(x, y, i) for i in range(n) ]
         t1 = [ 
-                cov(
+                npcov(
                     [
                         x[max(0, i - win_len):i],
                         y[max(0, i - win_len):i]

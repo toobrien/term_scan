@@ -55,20 +55,26 @@ class scan:
         mode = filter["mode"]
         rng = filter["range"]
 
-        latest = spread_set.get_latest()
         i = spread_set_index[type]
-        data = spread_set.get_col(i)
-        val = latest[i]
-        in_rng = False
+        stats = spread_set.get_stat(type)
 
-        if mode == "percentile": 
-            val = bisect_left(data, val) / len(data)
-        
+        latest = spread_set.get_latest()
+        val = latest[i]
+
+        in_rng = False 
+            
         for j in range(len(rng)):
+            lower = rng[j][0]
+            upper = rng[j][1]
+
+            if mode == "stdev":
+                lower = stats["median"] - lower * stats["stdev"]
+                upper = stats["median"] + upper * stats["stdev"]
+
             in_rng =    in_rng or \
                         (
-                            val >= rng[j][0] and
-                            val <= rng[j][1]
+                            val >= lower and
+                            val <= upper
                         )
             if (in_rng):
                 return val

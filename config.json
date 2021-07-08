@@ -15,8 +15,8 @@
                 "filters": [
                     { 
                         "type": "settle", 
-                        "mode": "percentile", 
-                        "range": [ [ 0.95, 1.0 ], [ 0.0, 0.05 ] ]
+                        "mode": "stdev", 
+                        "range": [ [ -4, -2 ], [ 2, 4 ] ]
                     }
                 ]
             }
@@ -38,8 +38,8 @@
             "filters": [
                 { 
                     "type": "settle",
-                    "mode": "percentile",
-                    "range": [ [ 0.9985, 1.0 ], [ 0.0, 0.0015 ] ]
+                    "mode": "stdev",
+                    "range": [ [ -4, -2 ], [ 2, 4 ] ]
                 }
             ]
         }

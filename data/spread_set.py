@@ -2,11 +2,10 @@ from data.data_store import nearest_row
 from window_stats import var, avg, cov
 from datetime import datetime
 from enum import IntEnum
-from functools import reduce
 from math import sqrt
-from operator import itemgetter, add
+from operator import itemgetter
 from data.spread import spread_row
-from statistics import stdev, mean
+from statistics import mean, stdev
 
 class spread_set_row(IntEnum):
     date = 0
@@ -39,7 +38,7 @@ MAX_WINDOW = 5  # maximum days since latest data point for
 class spread_set:
 
     def __init__(self, match, data_store):
-        self.set_cols([ None for i in spread_set_index ])
+        self.set_stats({})
         self.set_data_store(data_store)
         self.set_id(match)
         self.set_latest(None)
@@ -49,10 +48,6 @@ class spread_set:
         self.set_rows([])
 
 
-    def set_col(self, i, col): self.cols[i] = col
-    def get_col(self, i): return self.cols[i]
-    def set_cols(self, cols): self.cols = cols
-    def get_cols(self): return self.cols
     def set_data_store(self, data_store): self.data_store = data_store
     def get_data_store(self): return self.data_store
     def set_id(self, id): self.id = id
@@ -67,6 +62,9 @@ class spread_set:
     def get_median(self): return self.median
     def set_rows(self, rows): self.rows = rows
     def get_rows(self): return self.rows
+    def set_stats(self, stats_dict): self.stats = stats_dict
+    def set_stat(self, stat, stat_dict): self.stats[stat] = stat_dict
+    def get_stat(self, stat): return self.stats[stat]
 
 
     #   - assumes more than one spread has been added
@@ -97,6 +95,7 @@ class spread_set:
         spread_set_rows = self.get_rows()
         nearest = self.get_data_store().get_nearest_contract()
         spreads = {}
+        dl = {}
 
         # group rows by id
         for row in spread_set_rows:
@@ -104,6 +103,13 @@ class spread_set:
             if id not in spreads:
                 spreads[id] = []
             spreads[id].append(row)
+
+        # group rows by days_listed
+        for row in spread_set_rows:
+            x = int(row[spread_set_row.days_listed])
+            if x not in dl:
+                dl[x] = []
+            dl[x].append(row)
 
         # add stats to rows
         if "vol" in stats: 
@@ -139,30 +145,73 @@ class spread_set:
             if "beta" in stats: self.beta(x, y, spreads)
             if "r_2" in stats: self.r_2(x, y, spreads)
         
-        # now that stats are in the rows, init their cols
-        self.init_cols(stats)
+        # now that stats are in the rows, init summary statistics
+        for stat in stats:
+            idx = spread_set_index[stat]
+            rows = self.get_rows()
+            vals = sorted(
+                [ 
+                    row[idx] for row in rows
+                    if row[idx] is not None
+                ],
+                key = lambda x: float(x)
+            )
+            
+            # time series
+            # x = days_listed, y = avg value
+            # [ [ x0, y0 ], ..., [ xn, yn ] ] 
+            stat_rows = []
+            for x, rows in dl:
+                avg = mean([ 
+                    row[idx] for row in rows 
+                    if row[idx] is not None
+                ])
+                if len(avg) > 0:
+                    stat_rows.append([x, avg])
+            stat_rows.sort(key = lambda x: x[1] )
+
+            # mean
+            avg = mean(vals)
+
+            # median
+            mid = len(stat_rows) // 2
+            if len(stat_rows) % 2 == 0:
+                median = \
+                    (
+                        stat_rows[mid - 1][1] +\
+                        stat_rows[mid][1]
+                    ) / 2
+            else:
+                median = stat_rows[mid]
+            
+            # stdev
+            sigma = stdev(vals)
+
+            self.set_stat(
+                stat, 
+                {
+                    "rows": stat_rows,
+                    "mean": avg,
+                    "median": median,
+                    "stdev": sigma
+                }
+            )
+                                
+            
+                
+
+        
 
 
     # price volatility
     def vol(self, spreads):
         for _, rows in spreads.items():
-            for i in range(MA_PERIODS, len(rows)):
-                rng = rows[i - MA_PERIODS:i]
-                try:
-                    sigma = sqrt(
-                        stdev(
-                            [ 
-                                row[spread_set_row.settle] 
-                                for row in rng
-                            ]
-                        )
-                    )
-                except:
-                    # not enough points, probably
-                    sigma = None
-
-                for row in rng:
-                    row[spread_set_row.vol] = sigma
+            x = [ row[spread_set_row.settle] for row in rows ]
+            x_var = var(MA_PERIODS)
+            for i in range(len(rows)):
+                sigma = sqrt(x_var.next(x, i))
+                if i >= MA_PERIODS:
+                    rows[i][spread_set_row.vol] = sigma
 
 
     # beta: regression coefficient
@@ -208,7 +257,7 @@ class spread_set:
                 
                 # spreads[id] and y[id] should be sync'd
                 # e.g. spreads[id][1][date] == y[id][1][date]
-                if i > MA_PERIODS:
+                if i >= MA_PERIODS:
                     b = (MA_PERIODS * XY - X * Y) / \
                         (MA_PERIODS * X2 - X**2)
                     
