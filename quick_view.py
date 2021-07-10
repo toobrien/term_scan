@@ -12,7 +12,40 @@ from sqlite3 import connect
 from numpy import array
 from numpy.random import randn
 
-def create_row(spread_set):
+def stat_subplot(fig, spread_set, plot_def, x_lim):
+    stat = plot_def[0]
+    color = plot_def[1]
+    row_num = plot_def[2]
+
+    rows = spread_set.get_stat(stat)["rows"]
+
+    # stat trace
+    fig.add_trace(
+        go.Scatter(
+            x = [ row[0] for row in rows ],
+            y = [ row[1] for row in rows ],
+            name = plot_def[0],
+            mode = "markers",
+            marker = { "color": color }
+        ),
+        row = row_num,
+        col = 1
+    )
+    
+    # 0 trace
+    fig.add_trace(
+        go.Scatter(
+            x = [ 0, x_lim ],
+            y = [ 0, 0 ],
+            name = f"{plot_def[0]} 0",
+            marker = { "color": "#FF0000" }
+        ),
+        row = row_num,
+        col = 1
+    )
+
+
+def create_row(spread_set, stats):
     rows = spread_set.get_rows()
     spreads = {}
 
@@ -23,10 +56,15 @@ def create_row(spread_set):
     i_mt = spread_set_index["m_tick"]
 
     # figure
+    row_count = 1 + len(stats)
+    scatter_row_height = 1 - 0.1 * (row_count - 1)
+    rhs = [ 0.1 for i in range(row_count) ]
+    rhs[0] = scatter_row_height
+
     fig = make_subplots(
-        rows = 2,
+        rows = row_count,
         cols = 1,
-        row_heights = [ 0.8, 0.2 ],
+        row_heights = rhs,
         subplot_titles = [ 
             str(spread_set.get_id()),
         ],
@@ -38,7 +76,7 @@ def create_row(spread_set):
         #xaxis_title = "days_listed",
         #yaxis_title = "settle",
         width = 1200,
-        height = 600
+        height = 800
     )
 
     # settlement traces
@@ -73,7 +111,7 @@ def create_row(spread_set):
         )
 
     # median trace    
-    median = spread_set.get_stat["settle"]["median"]
+    median = spread_set.get_stat("settle")["median"]
     max_dl = array([row[i_dl] for row in rows]).max(0)
     fig.add_trace(
         go.Scatter(
@@ -85,33 +123,14 @@ def create_row(spread_set):
         )
     )
 
-    # m_tick
-    mt = spread_set.get_stat["m_tick"]["rows"]
-
-    # m_tick main
-    fig.add_trace(
-        go.Scatter(
-            x = [ row[0] for row in mt ],
-            y = [ row[1] for row in mt ],
-            name = "m_tick",
-            mode = "markers",
-            marker = { "color": "#0000FF" }
-        ),
-        row = 2,
-        col = 1
-    )
-    
-    # m_tick 0
-    fig.add_trace(
-        go.Scatter(
-            x = [ 0, max_dl ],
-            y = [ 0, 0 ],
-            name = "0",
-            marker = { "color": "#FF0000" }
-        ),
-        row = 2,
-        col = 1
-    )
+    # add stat subplots
+    colors = [ "#0000FF", "#FF00FF", "#00FF00", "#FF0000" ]
+    plot_defs = [
+        [ stats[i], colors[i], i + 2 ] 
+        for i in range(len(stats)) 
+    ]
+    for plot_def in plot_defs:
+        stat_subplot(fig, spread_set, plot_def, max_dl)
 
     # construct row
     settle_graph = Graph(
@@ -148,9 +167,9 @@ if __name__=="__main__":
         stats = [
             "settle", 
             "m_tick",
-            #"vol",
-            #"beta",
-            #"r_2"
+            "vol",
+            "beta",
+            "r_2"
         ]
 
         start = datetime.now()
@@ -160,7 +179,7 @@ if __name__=="__main__":
             spread_set.add_stats(stats)
 
         for spread_set in spread_sets:
-            rows.append(create_row(spread_set))
+            rows.append(create_row(spread_set, stats))
 
         table = Table(rows)
         app.layout = Div(children = [ table ])

@@ -173,13 +173,13 @@ class spread_set:
         # x = days_listed, y = avg value
         # [ [ x0, y0 ], ..., [ xn, yn ] ] 
         stat_rows = []
-        for x, rows in dl:
-            avg = mean([ 
-                row[idx] for row in rows 
-                if row[idx] is not None
-            ])
-            if len(avg) > 0:
-                stat_rows.append([x, avg])
+        for x, rows in dl.items():
+            spread_vals = [ 
+                    row[idx] for row in rows 
+                    if row[idx] is not None
+                ]   
+            if len(spread_vals) > 0:
+                stat_rows.append([x, mean(spread_vals)])
         stat_rows.sort(key = lambda x: x[1] )
 
         # mean
@@ -194,7 +194,7 @@ class spread_set:
                     stat_rows[mid][1]
                 ) / 2
         else:
-            median = stat_rows[mid]
+            median = stat_rows[mid][1]
         
         # stdev
         sigma = stdev(vals)
@@ -216,7 +216,7 @@ class spread_set:
             x = [ row[spread_set_row.settle] for row in rows ]
             x_var = var(MA_PERIODS)
             for i in range(len(rows)):
-                sigma = sqrt(x_var.next(x, i))
+                sigma = sqrt(max(x_var.next(x, i), 0))
                 if i >= MA_PERIODS:
                     rows[i][spread_set_row.vol] = sigma
 
@@ -283,7 +283,7 @@ class spread_set:
     #   - domain is [-1, 1]
     #   - -1 means all spreads ticked away from median, 1 all spreads toward
     def m_tick(self, spreads):
-        median = self.get_stat["settle"]["median"]
+        median = self.get_stat("settle")["median"]
         ticks_by_dl = {}
 
         # prepare ticks for aggregation
@@ -336,11 +336,6 @@ class spread_set:
                 # not all days_listed has a corresponding m_tick
                 continue
 
-        # set column here instead of from rows to prevent
-        # excessive duplicates
-        col = [ m_tick for _, m_tick in m_ticks.items() ].sort()
-        self.set_col(spread_set_row.m_tick, col)
-
                 
     # coefficient of determination:
     #   - (COV(XY) / (STDEV(X) * STDEV(Y)))^2
@@ -366,17 +361,19 @@ class spread_set:
                 x_rtns.append(x_rtn)
                 y_rtns.append(y_rtn)
 
-                x_sigma = sqrt(x_var.next(x_rtns, i))
-                y_sigma = sqrt(y_var.next(y_rtns, i))
+                x_sigma = sqrt(max(x_var.next(x_rtns, i), 0))
+                y_sigma = sqrt(max(y_var.next(y_rtns, i), 0))
 
                 if x_sigma <= 0 or y_sigma <=0:
                     continue
 
-                cov_xy = xy_cov(x_rtns, y_rtns, i)
+                cov_xy = xy_cov.next(x_rtns, y_rtns, i)
                 r_2 = (cov_xy / (x_sigma * y_sigma))**2
 
                 if i >= MA_PERIODS:
-                    spreads[id][i][spread_set_row.r_2] = r_2
+                    # filter outliers
+                    if r_2 <= 1:
+                        spreads[id][i][spread_set_row.r_2] = r_2
 
 
     # input:    spread_row

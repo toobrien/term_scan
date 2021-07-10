@@ -5,8 +5,8 @@ from math import sqrt, pow
 from matplotlib import pyplot as plt
 
 
-# https://stackoverflow.com/questions/14635735/how-to-efficiently-calculate-a-moving-standard-deviation
 class var:
+# https://stackoverflow.com/questions/14635735/how-to-efficiently-calculate-a-moving-standard-deviation
 
     def __init__(self, win_len):
         self.win_len = win_len
@@ -98,9 +98,8 @@ class avg:
         return self.sum / n
 
 
-# https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Covariance
 class cov:
-
+# https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Covariance
 
     def __init__(self, win_len):
         self.win_len = win_len
