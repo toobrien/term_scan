@@ -26,8 +26,8 @@
             "contract": "ED",
             "params": {
                 "type": "sequence",
-                "data_range": [ "2010-01-01", "2035-01-01" ],
-                "result_limit": 50,
+                "data_range": [ "2000-01-01", "2035-01-01" ],
+                "result_limit": 10,
                 "legs": [
                     [ "0", "10", "A" ],
                     [ "+1", "+1", "B" ],

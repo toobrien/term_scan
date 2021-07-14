@@ -69,8 +69,8 @@ class contract_store(data_store):
             try:
                 # (<contract_obj>, "+")
                 valid_matches = [
-                    ( contracts[bound[0]], bound[1] )
-                    for bound in bound_matches
+                    ( contracts[bm[0]], bm[1] )
+                    for bm in bound_matches
                 ]
             except KeyError:
                 # after binding, at least one match is not a valid contract

@@ -13,10 +13,8 @@ class contract_iterator:
 
     def set_legs(self, legs): self.legs = legs
     def get_legs(self): return self.legs
-
     def set_its(self, its): self.its = its
     def get_its(self): return self.its
-
     def set_finished(self, finished): self.finished = finished
     def get_finished(self): return self.finished
 
@@ -80,7 +78,6 @@ class contract_iterator:
 
         its = [{
             # null leg, for binding front leg
-            "id": 0,
             "current": { "m": 0, "y": 0 }, 
             "range": None,
             "init": None

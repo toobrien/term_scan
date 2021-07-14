@@ -100,7 +100,7 @@ class scan:
         for match in it:
             spread_set = data_store.get_spread_set(match)
 
-            #print(match)
+            print(match)
 
             if (spread_set and spread_set.get_live()):
                 spread_set.add_stats(stats)

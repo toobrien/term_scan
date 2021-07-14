@@ -19,7 +19,6 @@ class data_store:
         self.set_cursor(cursor)
         self.set_contract(contract)
         self.set_data_range(range)
-
         self.init_rows()
 
     def set_cursor(self, cursor): self.cursor = cursor

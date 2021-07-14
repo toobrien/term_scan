@@ -1,5 +1,6 @@
 from enum import IntEnum
 from data.contracts.contract import contract_row
+from data.terms.terms import terms_row
 from sys import maxsize
 
 class spread_row(IntEnum):
@@ -67,20 +68,49 @@ class spread:
             if row[2] == len(contracts)
         ]
 
-        # add change
-        spread_rows.sort(key = lambda x: x[spread_row.date] )
-        for i in range(1, len(spread_rows)):
-            spread_rows[i][spread_row.change] = \
-            spread_rows[i][spread_row.settle] - \
-            spread_rows[i - 1][spread_row.settle]
-        
         self.set_rows(spread_rows)
+        self.set_changes()
 
     def set_id_by_terms(self, terms):
-        pass
+        self.set_id(terms["id"])
 
+    # terms: 
+    #   { 
+    #       "id": [ (i, sign), ... ],
+    #       "rows": [ <term_rows> ]
+    #   }
     def set_rows_by_terms(self, terms):
-        pass
+        id = self.get_id()
+        max_idx = max(id, lambda t_id: t_id[1])
+        rows = []
+
+        idx = 0
+        sign = 1
+
+        for term_set in terms["rows"]:
+            if len(term_set) > max_idx:
+                date = term_set[0][terms_row.date]
+                settle = 0
+                dl = min(term_set, lambda r: r[terms_row.date])
+
+                for t_id in id:
+                    settle += t_id[sign] * \
+                        term_set[t_id[idx]][terms_row.settle]
+
+                rows.append([ date, id, settle, None, dl ])
+            
+
+        self.set_rows(rows)
+        self.set_changes()
+
+    def set_changes(self):
+        rows = self.get_rows()
+        rows.sort(key = lambda x: x[spread_row.date] )
+
+        for i in range(1, len(rows)):
+            rows[i][spread_row.change] = \
+            rows[i][spread_row.settle] - \
+            rows[i - 1][spread_row.settle]
 
     def __len__(self):
         return len(self.get_rows())
