@@ -88,7 +88,7 @@ def create_row(spread_set, stats):
     next_opc = 0.1
     opc_step = 0.6 / len(spreads)
 
-    for agg_id, spread in spreads.items():
+    for plot_id, spread in spreads.items():
         latest = date.fromisoformat(spread[-1][i_dt])
         active = window <= latest
         _color = None if active else "#0000FF"
@@ -171,15 +171,7 @@ if __name__=="__main__":
             )
             matches = [
                 ((15, 'A'), (32, 'B')),
-                ((16, 'A'), (32, 'B')),
-                ((17, 'A'), (32, 'B')),
-                ((18, 'A'), (32, 'B')),
-                ((19, 'A'), (24, 'B')),
-                ((19, 'A'), (25, 'B')),
-                ((19, 'A'), (26, 'B')),
-                ((19, 'A'), (28, 'B')),
-                ((19, 'A'), (29, 'B')),
-                ((19, 'A'), (30, 'B'))
+                ((19, 'A'), (24, 'B'))
             ]
 
         stats = [

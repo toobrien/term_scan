@@ -31,7 +31,7 @@ class terms_store(data_store):
     #   ...
     # ]
     def init_terms(self, rows):
-        cur_dt = rows[0][terms_row.date]
+        cur_dt = rows[0][data_row.date]
         terms_sets = []
         terms = []
 

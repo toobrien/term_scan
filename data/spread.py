@@ -100,17 +100,15 @@ class spread:
                 plot_id = []
                 date = term_set[0][terms_row.date]
                 settle = 0
-                dl = min(
-                    term_set,
-                    key=lambda r: r[terms_row.days_listed]
-                )[terms_row.days_listed]
+                dl = maxsize
 
                 for t in agg_id:
                     term = t[term_idx]
                     sign = t[sign_idx]
-                    term_row = term_set[term]
-                    settle += SIDE_MAP[sign] * term_row[terms_row.settle]
-                    plot_id.append(sign + term_row[terms_row.contract])
+                    row = term_set[term]
+                    plot_id.append(sign + row[terms_row.contract])
+                    settle += SIDE_MAP[sign] * row[terms_row.settle]
+                    dl = min(maxsize, row[terms_row.days_listed])
 
                 rows.append(
                     [ 
