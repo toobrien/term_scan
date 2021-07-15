@@ -12,7 +12,7 @@ def batch_execute(batch):
     all_results = []
 
     #for scan_def in batch:
-    for i in range(0,1):
+    for i in range(1,2):
         s = scan(batch[i], cursor)
         rs = s.execute()
         all_results.append(rs)

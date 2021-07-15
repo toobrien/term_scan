@@ -68,7 +68,7 @@ class scan:
             upper = rng[j][1]
 
             if mode == "stdev":
-                lower = stats["median"] - lower * stats["stdev"]
+                lower = stats["median"] + lower * stats["stdev"]
                 upper = stats["median"] + upper * stats["stdev"]
 
             in_rng =    in_rng or \
@@ -100,7 +100,7 @@ class scan:
         for match in it:
             spread_set = data_store.get_spread_set(match)
 
-            print(match)
+            #print(match)
 
             if (spread_set and spread_set.get_live()):
                 spread_set.add_stats(stats)
@@ -109,9 +109,9 @@ class scan:
                 # could remove duplicates in 
                 # data_store.calculate_spreads
                 # but doing it here instead
-                id = latest[spread_set_row.id]
-                if not id in seen:
-                    seen.add(id)
+                agg_id = latest[spread_set_row.agg_id]
+                if not agg_id in seen:
+                    seen.add(agg_id)
                 else: 
                     continue
 
@@ -129,7 +129,7 @@ class scan:
                         pass
 
                 if (pass_all):
-                    results.append((match, id))
+                    results.append(match)
 
             if (result_limit and len(results) >= result_limit): break
 

@@ -22,26 +22,24 @@
             }
         },
         {
-            "name": "1-wide butterfly",
+            "name": "2-leg calendar",
             "contract": "ED",
             "params": {
                 "type": "sequence",
                 "data_range": [ "2000-01-01", "2035-01-01" ],
-                "result_limit": 10,
+                "result_limit": 20,
                 "legs": [
-                    [ "0", "10", "A" ],
-                    [ "+1", "+1", "B" ],
-                    [ "+0", "+0", "B" ],
-                    [ "+1", "+1", "A" ]
+                    [ "0", "119", "A" ],
+                    [ "+1", "119", "B" ]
+                ],
+                "filters": [
+                    { 
+                        "type": "settle",
+                        "mode": "stdev",
+                        "range": [ [ -4, -2 ], [ 2, 4 ] ]
+                    }
                 ]
-            },
-            "filters": [
-                { 
-                    "type": "settle",
-                    "mode": "stdev",
-                    "range": [ [ -4, -2 ], [ 2, 4 ] ]
-                }
-            ]
+            }
         }
     ]
 }

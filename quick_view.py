@@ -1,16 +1,14 @@
 from dash import Dash
 from dash_core_components import Graph
 from dash_html_components import Div, Table, Tr, Td
-from dash_html_components.Figure import Figure
 from data.contracts.contract_store import contract_store
-from data.spread_set import spread_set_row, spread_set_index
+from data.spread_set import spread_set_index
 from datetime import datetime, date, timedelta
 from json import loads
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sqlite3 import connect
 from numpy import array
-from numpy.random import randn
 
 def stat_subplot(fig, spread_set, plot_def, x_lim):
     stat = plot_def[0]
@@ -49,11 +47,10 @@ def create_row(spread_set, stats):
     rows = spread_set.get_rows()
     spreads = {}
 
-    i_id = spread_set_index["id"]
+    i_pid = spread_set_index["plot_id"]
     i_dt = spread_set_index["date"]
     i_dl = spread_set_index["days_listed"]
     i_stl = spread_set_index["settle"]
-    i_mt = spread_set_index["m_tick"]
 
     # figure
     row_count = 1 + len(stats)
@@ -65,7 +62,7 @@ def create_row(spread_set, stats):
         rows = row_count,
         cols = 1,
         row_heights = rhs,
-        subplot_titles = [ 
+        subplot_titles = [
             str(spread_set.get_id()),
         ],
         shared_xaxes = True,
@@ -81,16 +78,16 @@ def create_row(spread_set, stats):
 
     # settlement traces
     for row in rows:
-        id = row[i_id]
-        if id not in spreads:
-            spreads[id] = [] 
-        spreads[id].append(row)
+        plot_id = row[i_pid]
+        if plot_id not in spreads:
+            spreads[plot_id] = [] 
+        spreads[plot_id].append(row)
 
     window = date.today() - timedelta(days= 5)
     next_opc = 0.1
     opc_step = 0.6 / len(spreads)
 
-    for id, spread in spreads.items():
+    for agg_id, spread in spreads.items():
         latest = date.fromisoformat(spread[-1][i_dt])
         active = window <= latest
         _color = None if active else "#0000FF"
@@ -101,7 +98,7 @@ def create_row(spread_set, stats):
             go.Scatter(
                 x = [ row[i_dl] for row in spread ],
                 y = [ row[i_stl] for row in spread ],
-                name = str(id),
+                name = str(plot_id),
                 mode = "markers",
                 opacity = _opacity,
                 marker = { "color": _color }
@@ -151,18 +148,32 @@ if __name__=="__main__":
         config = loads(fd.read())
         cur = connect(config["db_path"])
 
+        # contract/calendar style
         data = contract_store(
             "SM", 
-            ["2010-01-01", "2025-01-01"], 
+            [ "2010-01-01", "2025-01-01" ],
             cur
         )
-        
-        matches = [
-            ((9, 0, 'A'), (11, 1, 'B')),    #('+V10', '-Z11')
-            ((0, 1, 'A'), (11, 1, 'B')),    #('+F11', '-Z11'))
-            ((2, 1, 'A'), (11, 1, 'B')),    #('+H11', '-Z11'))
-            ((4, 1, 'A'), (11, 1, 'B'))     #('+K11', '-Z11'))
-        ]
+      
+        mode = "terms"
+
+        if mode == "contract":
+            matches = [
+                ((9, 0, 'A'), (11, 1, 'B')),    #('+V10', '-Z11')
+                ((0, 1, 'A'), (11, 1, 'B')),    #('+F11', '-Z11'))
+                ((2, 1, 'A'), (11, 1, 'B')),    #('+H11', '-Z11'))
+                ((4, 1, 'A'), (11, 1, 'B'))     #('+K11', '-Z11'))
+            ]
+        elif mode == "terms":
+            data = contract_store(
+                "ED",
+                [ "2000-01-01", "2035-01-01" ],
+                cur
+            )
+
+            matches = [
+                # ...
+            ]
 
         stats = [
             "settle", 

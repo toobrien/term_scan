@@ -5,22 +5,29 @@ from sys import maxsize
 
 class spread_row(IntEnum):
     date = 0
-    id = 1
-    settle = 2
-    change = 3
-    days_listed = 4
+    agg_id = 1
+    plot_id = 2
+    settle = 3
+    change = 4
+    days_listed = 5
+
 
 SIDE_MAP = { "+": 1, "-": -1 }
 
+
 class spread:
+
+
     def __init__(self):
         self.set_id(None)
         self.set_rows(None)
+
 
     def set_id(self, id): self.id = id
     def get_id(self): return self.id
     def set_rows(self, rows): self.rows = rows
     def get_rows(self): return self.rows
+
 
     # e.g.: ( "+G10", "-J10")
     def set_id_by_contract(self, contracts):
@@ -29,10 +36,11 @@ class spread:
             for contract in contracts 
         )
 
-    # spread row format: ( date, id, spread, change, days_listed )
+
     # undefined order
     def set_rows_by_contract(self, contracts):
-        id = self.get_id()
+        agg_id = self.get_id()
+        plot_id = agg_id
         spread_rows = {}
 
         for i in range(len(contracts)):
@@ -62,7 +70,7 @@ class spread:
                 r[2] += 1
 
         spread_rows = [
-            [ date, id, row[0], None, row[1] ]
+            [ date, agg_id, plot_id, row[0], None, row[1] ]
             for date, row in spread_rows.items()
             # filter out days where not all legs were listed
             if row[2] == len(contracts)
@@ -72,33 +80,48 @@ class spread:
         self.set_changes()
 
     def set_id_by_terms(self, terms):
-        self.set_id(terms["id"])
+        self.set_id(terms["match"])
 
     # terms: 
     #   { 
     #       "id": [ (i, sign), ... ],
-    #       "rows": [ <term_rows> ]
+    #       "rows": [ <terms_rows> ]
     #   }
     def set_rows_by_terms(self, terms):
-        id = self.get_id()
-        max_idx = max(id, lambda t_id: t_id[1])
-        rows = []
+        term_idx = 0
+        sign_idx = 1
 
-        idx = 0
-        sign = 1
+        agg_id = self.get_id()
+        max_idx = max(agg_id, key=lambda t: t[term_idx])[term_idx]
+        rows = []
 
         for term_set in terms["rows"]:
             if len(term_set) > max_idx:
+                plot_id = []
                 date = term_set[0][terms_row.date]
                 settle = 0
-                dl = min(term_set, lambda r: r[terms_row.date])
+                dl = min(
+                    term_set,
+                    key=lambda r: r[terms_row.days_listed]
+                )[terms_row.days_listed]
 
-                for t_id in id:
-                    settle += t_id[sign] * \
-                        term_set[t_id[idx]][terms_row.settle]
+                for t in agg_id:
+                    term = t[term_idx]
+                    sign = t[sign_idx]
+                    term_row = term_set[term]
+                    settle += SIDE_MAP[sign] * term_row[terms_row.settle]
+                    plot_id.append(sign + term_row[terms_row.contract])
 
-                rows.append([ date, id, settle, None, dl ])
-            
+                rows.append(
+                    [ 
+                        date,
+                        agg_id,
+                        tuple(plot_id),
+                        settle,
+                        None,
+                        dl
+                    ]
+                )
 
         self.set_rows(rows)
         self.set_changes()

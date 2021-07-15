@@ -9,25 +9,27 @@ from statistics import mean, stdev
 
 class spread_set_row(IntEnum):
     date = 0
-    id = 1
-    settle = 2
-    change = 3
-    days_listed = 4
-    vol = 5
-    m_tick = 6
-    beta = 7
-    r_2 = 8
+    agg_id = 1
+    plot_id = 2
+    settle = 3
+    change = 4
+    days_listed = 5
+    vol = 6
+    m_tick = 7
+    beta = 8
+    r_2 = 9
 
 spread_set_index = {
     "date": 0,
-    "id": 1,
-    "settle": 2,
-    "change": 3,
-    "days_listed": 4,
-    "vol": 5,
-    "m_tick": 6,
-    "beta": 7,
-    "r_2": 8
+    "agg_id": 1,
+    "plot_id": 2,
+    "settle": 3,
+    "change": 4,
+    "days_listed": 5,
+    "vol": 6,
+    "m_tick": 7,
+    "beta": 8,
+    "r_2": 9
 }
 
 MA_PERIODS = 30 # moving average periods
@@ -44,7 +46,6 @@ class spread_set:
         self.set_latest(None)
         self.set_len(0)
         self.set_live(False)
-        self.set_median(None)
         self.set_rows([])
 
 
@@ -58,8 +59,6 @@ class spread_set:
     def get_len(self): return self.len
     def set_live(self, live): self.live = live
     def get_live(self): return self.live
-    def set_median(self, median): self.median = median
-    def get_median(self): return self.median
     def set_rows(self, rows): self.rows = rows
     def get_rows(self): return self.rows
     def set_stats(self, stats_dict): self.stats = stats_dict
@@ -88,7 +87,7 @@ class spread_set:
             self.set_latest(rows[0])
 
 
-#   - assumes rows sorted ascending by date in organize()
+    #   - assumes rows sorted ascending by date in organize()
     #   - vol, beta, and r_2 are look-behind, intra-spread stats
     #   - m_tick is a look-ahead, inter-spread stat
     def add_stats(self, stats):
@@ -109,12 +108,14 @@ class spread_set:
         try: stats.remove("settle")
         except: pass
 
-        # group rows by id
+        # group rows by agg_id
+        # agg_id allows stats to be computed differently
+        # for contract- and terms- style spreads
         for row in spread_set_rows:
-            id = row[spread_set_row.id]
-            if id not in spreads:
-                spreads[id] = []
-            spreads[id].append(row)
+            agg_id = row[spread_set_row.agg_id]
+            if agg_id not in spreads:
+                spreads[agg_id] = []
+            spreads[agg_id].append(row)
 
         # add stats to rows
         if "vol" in stats: 
@@ -126,7 +127,7 @@ class spread_set:
         if "beta" or "r_2" in stats:
             # y:
             #   - spread returns
-            #   - { spread_id: [ [ date, return ], ... ]}
+            #   - { agg_id: [ [ date, return ], ... ]}
             # x:
             #   - front month returns
             #   - { date: return }
@@ -387,7 +388,8 @@ class spread_set:
             rows.append(
                 [
                     row[spread_row.date], 
-                    row[spread_row.id], 
+                    row[spread_row.agg_id],
+                    row[spread_row.plot_id],
                     row[spread_row.settle],
                     row[spread_row.change],
                     row[spread_row.days_listed],

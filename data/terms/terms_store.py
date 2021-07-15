@@ -1,14 +1,22 @@
 
-from data.data_store import data_store
+from data.data_store import data_store, data_row
+from data.domain import SIDE_MAP
 from data.terms.terms_iterator import terms_iterator
 from data.terms.terms import terms_row
 from data.spread import spread
 from data.spread_set import spread_set
 
 class terms_store(data_store):
+
+
     def __init__(self, contract, data_range, cursor):
         super().__init__(contract, data_range, cursor)
         self.init_terms(self.get_rows())
+
+
+    def set_terms(self, terms): self.terms = terms
+    def get_terms(self): return self.terms
+
 
     # [
     #   [
@@ -28,27 +36,40 @@ class terms_store(data_store):
         terms = []
 
         for i in range(len(rows)):
-            cur_row = rows[i]
+            r = rows[i]
+            cur_row = [
+                r[data_row.date],
+                r[data_row.month] + r[data_row.year][2:],
+                r[data_row.settle],
+                r[data_row.days_listed]
+            ]
             if cur_row[terms_row.date] != cur_dt:
                 terms_sets.append(terms)
                 cur_dt = cur_row[terms_row.date]
                 terms = [ cur_row ]
             else:
-                terms.append[ cur_row ]
+                terms.append(cur_row)
             
         if len(terms) > 0:
             terms_sets.append(terms)
 
-        self.rows(terms_sets)
+        self.set_terms(terms_sets)
 
     def get_iterator(self, legs):
         return terms_iterator(legs)
 
     def get_spread_set(self, match):
+        term_idx = 0
+        side_idx = 1
+        bound = tuple(
+            ( t[term_idx], SIDE_MAP[ t[side_idx] ] )
+            for t in match
+        )
         terms = {
             "rows": self.get_terms(),
-            "match": self.get_match()
+            "match": bound
         }
+
         ss = spread_set(match, self)
         s = spread()
 
