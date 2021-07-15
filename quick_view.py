@@ -3,6 +3,7 @@ from dash_core_components import Graph
 from dash_html_components import Div, Table, Tr, Td
 from data.contracts.contract_store import contract_store
 from data.spread_set import spread_set_index
+from data.terms.terms_store import terms_store
 from datetime import datetime, date, timedelta
 from json import loads
 import plotly.graph_objects as go
@@ -148,16 +149,14 @@ if __name__=="__main__":
         config = loads(fd.read())
         cur = connect(config["db_path"])
 
-        # contract/calendar style
-        data = contract_store(
-            "SM", 
-            [ "2010-01-01", "2025-01-01" ],
-            cur
-        )
-      
         mode = "terms"
 
         if mode == "contract":
+            data = contract_store(
+                "SM", 
+                [ "2010-01-01", "2025-01-01" ],
+                cur
+            )
             matches = [
                 ((9, 0, 'A'), (11, 1, 'B')),    #('+V10', '-Z11')
                 ((0, 1, 'A'), (11, 1, 'B')),    #('+F11', '-Z11'))
@@ -165,14 +164,22 @@ if __name__=="__main__":
                 ((4, 1, 'A'), (11, 1, 'B'))     #('+K11', '-Z11'))
             ]
         elif mode == "terms":
-            data = contract_store(
+            data = terms_store(
                 "ED",
                 [ "2000-01-01", "2035-01-01" ],
                 cur
             )
-
             matches = [
-                # ...
+                ((15, 'A'), (32, 'B')),
+                ((16, 'A'), (32, 'B')),
+                ((17, 'A'), (32, 'B')),
+                ((18, 'A'), (32, 'B')),
+                ((19, 'A'), (24, 'B')),
+                ((19, 'A'), (25, 'B')),
+                ((19, 'A'), (26, 'B')),
+                ((19, 'A'), (28, 'B')),
+                ((19, 'A'), (29, 'B')),
+                ((19, 'A'), (30, 'B'))
             ]
 
         stats = [
