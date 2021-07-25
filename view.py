@@ -108,16 +108,25 @@ def create_graph(spread_set, stats):
             spreads[plot_id] = [] 
         spreads[plot_id].append(row)
 
+    inactive_opc = 0.2
+    active_opc = 0.7
+    inactive_opc_step = 0.6 / (0.8 * len(spreads))
+    active_opc_step = 0.2 / (0.2 *len(spreads))
+
     window = date.today() - timedelta(days= 5)
-    next_opc = 0.1
-    opc_step = 0.6 / len(spreads)
 
     for plot_id, spread in spreads.items():
         latest = date.fromisoformat(spread[-1][i_dt])
         active = window <= latest
-        _color = None if active else "#0000FF"
-        _opacity = 1 if active else next_opc
-        next_opc += opc_step
+
+        if active:
+            clr = "#FF0000"
+            opc = active_opc
+            active_opc += active_opc_step
+        else:
+            clr = "#0000FF"
+            opc = inactive_opc
+            inactive_opc += inactive_opc_step
 
         fig.add_trace(
             go.Scatter(
@@ -125,8 +134,8 @@ def create_graph(spread_set, stats):
                 y = [ row[i_stl] for row in spread ],
                 name = str(plot_id),
                 mode = "markers",
-                opacity = _opacity,
-                marker = { "color": _color }
+                opacity = opc,
+                marker = { "color": clr }
             ),
             row = 1,
             col = 1
