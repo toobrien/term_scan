@@ -2,7 +2,6 @@ from data.contracts.contract_store import contract_store
 from data.terms.terms_store import terms_store
 from data.spread_set import spread_set_index
 from data.spread_set import spread_set_row
-from bisect import bisect_left
 from datetime import datetime
 
 class scan:
@@ -129,7 +128,12 @@ class scan:
                         pass
 
                 if (pass_all):
-                    results.append(match)
+                    results.append(
+                        {
+                            "match": match, 
+                            "data": spread_set
+                        }
+                    )
 
             if (result_limit and len(results) >= result_limit): break
 

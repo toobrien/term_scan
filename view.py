@@ -13,15 +13,26 @@ from plotly.subplots import make_subplots
 from sqlite3 import connect
 from numpy import array
 
-# global variables
 
+# GLOBAL VARIABLES
+
+
+config = None
+db = None
+
+with open('./config.json') as fd:
+    config = loads(fd.read())
+    db = connect(config["db_path"])
 
 app = Dash(__name__)
+
+current_scan = None
 scan_defs = {}
-scan_data = {}
+match_data = {}
+figures = {}
 
 
-# functions
+# FUNCTIONS
 
 
 # add a subplot for a given statistic
@@ -60,6 +71,7 @@ def stat_subplot(fig, spread_set, plot_def, x_lim):
         row = row_num,
         col = 1
     )
+
 
 # plot settlement values every spread in a related set,
 # along with subplots for statistics of interest
@@ -158,15 +170,66 @@ def create_graph(spread_set, stats):
     return graph
 
 
-# update scan as input changes
+# sequence:
+#   in:
+#       0,119,A      
+#       +1,119,B 
+#   out:
+#       [
+#           [ "0", "119", "A" ],
+#           [ "+1", "119", "B" ]
+#       ]
+# calendar:
+#   in:
+#       Q,Z,0,1,A
+#       +1,Z,+0,1,B
+#   out:
+#       [
+#           [ "Q", "Z", "0", "3", "A" ],
+#           [ "+1", "Z", "+0", "1", "A" ]
+#       ]
+def parse_legs(legs):
+    pass
+
+
+# in:
+#   settle:abs=-10,10
+#   m_tick:abs=0.2,1
+#   vol:std=-2,-1;1,2
+#   beta:abs=0,0.1
+#   r_2:abs=0,0.3
+# out:
+#   [
+#       { 
+#           type: "vol",
+#           mode: "stdev",
+#           range: [ [ -2, -1 ], [ 1, 2 ] ] 
+#       },
+#           ...
+#   ]
+def parse_filters(filters):
+    pass
+
+
+# update scan parameters as the user edits them
 @app.callback(
-    State("name", "value"),
-    State("contract", "value"),
-    State("type", "value"),
-    State("date_range", "value"),
-    State("result_limit", "value"),
-    State("legs", "value"),
-    State("filters", "value"),
+    Input("name", "value"),
+    Input("contract", "value"),
+    Input("type", "value"),
+    Input("date_range", "value"),
+    Input("result_limit", "value"),
+    Input("legs", "value"),
+    Input("filters", "value")
+)
+def update_current_scan(
+    name, contract, type, 
+    date_range, legs, filters
+):
+    pass
+
+
+# update execute current_scan
+@app.callback(
     Input("start", "n_clicks"),
     Output("results", "value")
 )
@@ -179,17 +242,41 @@ def start_scan():
     Input("save", "nclicks"),
     State("save_delete", "value")
 )
-def delete_scan():
-    pass
+def save_scan(save, save_delete):
+    scan_defs[save_delete] = current_scan
+    config["scans"] = [ dumps(scan) for scan in scan_defs ]
+    
+    with open('./config.json', "w") as fd:
+        fd.write(dumps(config))
+
 
 
 # save current scan under name in save_delete field
 @app.callback(
     Input("delete", "nclicks"),
-    State("save_delete", "value")   
+    State("save_delete", "value"),
+    Output("scan", "children")
 )
-def save_scan():
-    pass
+def delete_scan(delete, save_delete):
+    scan_options = []
+    scans = []
+
+    for name, dfn in scan_defs:
+        if name != save_delete:
+            scans.append(dumps(dfn))
+            scan_options.append(
+                {
+                    "label": name,
+                    "value": name
+                }
+            )
+    
+    config["scans"] = scans
+    
+    with open('./config.json', "w") as fd:
+        fd.write(dumps(config))
+
+    return scan_options
 
 
 # generate and store graph objects for
@@ -198,17 +285,39 @@ def save_scan():
     Input("to_view", "value"),
     Output("viewing", "children")
 )
-def generate_figures():
-    pass
+def generate_figures(to_view):
+    figures.clear()
+    viewing_options = []
+
+    # stats computed in this scan
+    # TODO: decouple (just compute all?)
+    stats = [
+        f["type"] 
+        for f in current_scan["filters"]
+    ]
+
+    # generate, store figures and set viewing options
+    for match in to_view.split("\n"):
+        if match in match_data:
+            spread_set = match_data[match]
+            figures[match] = create_graph(spread_set, stats)
+            viewing_options.append(
+                {
+                    "label": match,
+                    "value": match
+                }
+            )
+
+    return viewing_options
 
 
-# view selected data
+# view selected figure
 @app.callback(
     Input("viewing", "value"),
     Output("plots", "children")
 )
-def update_graph():
-    pass
+def update_graph(viewing):
+    return figures[viewing]
 
 
 def get_layout(scans):
@@ -284,11 +393,6 @@ def get_layout(scans):
     ])
 
 if __name__=="__main__":
-    with open('./config.json') as fd:
-        # load config
-        config = loads(fd.read())
-        cur = connect(config["db_path"])
-
         # scan
         '''
         mode = "terms"
