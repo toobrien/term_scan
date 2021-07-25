@@ -217,7 +217,7 @@ class spread_set:
                 "rows": stat_rows,
                 "mean": avg,
                 "median": median,
-                "stdev": sigma
+                "std": sigma
             }
         )
 

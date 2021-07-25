@@ -1,45 +1,41 @@
 {
     "db_path": "../viewer/srf.db",
-    "default_scan_batch": [
+    "scans": [
         {
-            "name": "2-leg calendar",
+            "name": "zm_2",
             "contract": "SM",
-            "params": {
-                "type": "calendar",
-                "data_range": [ "2010-01-01", "2025-01-01" ],
-                "result_limit": null,
-                "legs": [ 
-                    [ "F", "Z", "0", "1", "A" ],
-                    [ "+1", "Z", "+0", "1", "B" ]
-                ],
-                "filters": [
-                    { 
-                        "type": "settle", 
-                        "mode": "stdev", 
-                        "range": [ [ -4, -2 ], [ 2, 4 ] ]
-                    }
-                ]
-            }
+            "type": "calendar",
+            "data_range": [ "2010-01-01", "2025-01-01" ],
+            "result_limit": null,
+            "legs": [
+                [ "N", "Z", "0", "3", "A"],
+                [ "+1", "Z", "+0", "3", "B"]
+            ],
+            "filters": [
+                {
+                    "type": "settle",
+                    "mode": "abs",
+                    "range": [ [ -10, -5 ], [ 20, 100 ] ]
+                }
+            ]
         },
         {
-            "name": "2-leg calendar",
+            "name": "ge_2",
             "contract": "ED",
-            "params": {
-                "type": "sequence",
-                "data_range": [ "2000-01-01", "2035-01-01" ],
-                "result_limit": 10,
-                "legs": [
-                    [ "0", "119", "A" ],
-                    [ "+1", "119", "B" ]
-                ],
-                "filters": [
-                    { 
-                        "type": "settle",
-                        "mode": "stdev",
-                        "range": [ [ -4, -2 ], [ 2, 4 ] ]
-                    }
-                ]
-            }
+            "type": "sequence",
+            "data_range": [ "2000-01-01", "2035-01-01" ],
+            "result_limit": 25,
+            "legs": [
+                [ "0", "119", "A" ],
+                [ "+1", "119", "B" ]
+            ],
+            "filters": [
+                {
+                    "type": "settle",
+                    "mode": "std",
+                    "range": [ [ -2, -1], [ 1, 2] ]
+                }
+            ]
         }
     ]
 }

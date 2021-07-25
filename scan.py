@@ -8,13 +8,11 @@ class scan:
     def __init__(self, scan_def, cursor):
         self.set_name(scan_def["name"])
         self.set_contract(scan_def["contract"])
-
-        params = scan_def["params"]
-        self.set_type(params["type"])
-        self.set_filters(params["filters"])
-        self.set_legs(params["legs"])
-        self.set_data_range(params["data_range"])
-        self.set_result_limit(params["result_limit"])
+        self.set_type(scan_def["type"])
+        self.set_data_range(scan_def["data_range"])
+        self.set_result_limit(scan_def["result_limit"])
+        self.set_legs(scan_def["legs"])
+        self.set_filters(scan_def["filters"])
 
         self.init_data_store(cursor)
         
@@ -66,9 +64,9 @@ class scan:
             lower = rng[j][0]
             upper = rng[j][1]
 
-            if mode == "stdev":
-                lower = stats["median"] + lower * stats["stdev"]
-                upper = stats["median"] + upper * stats["stdev"]
+            if mode == "std":
+                lower = stats["median"] + lower * stats["std"]
+                upper = stats["median"] + upper * stats["std"]
 
             in_rng =    in_rng or \
                         (
@@ -94,6 +92,7 @@ class scan:
         it = data_store.get_iterator(self.get_legs())
         seen = set()
 
+        print(f"starting scan: {self.get_name()}")
         start = datetime.now()
 
         for match in it:
