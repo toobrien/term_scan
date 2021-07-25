@@ -32,9 +32,11 @@ spread_set_index = {
     "r_2": 9
 }
 
-MA_PERIODS = 30 # moving average periods
-MAX_WINDOW = 5  # maximum days since latest data point for 
-                # latest spread in set to be tradeable/"live"
+WIN_PERIODS = 30                    # width of sliding window for stats
+EMA_PERIODS = 20                    # width of moving average for smooth plotting
+EMA_FACTOR = 2 / (EMA_PERIODS + 1)  # smoothing factor for EMA
+MAX_WINDOW = 5                      # maximum days since latest data point for 
+                                    # latest spread in set to be tradeable/"live"
 
 
 class spread_set:
@@ -200,6 +202,15 @@ class spread_set:
         # stdev
         sigma = stdev(vals)
 
+        # smooth stat rows, except for settlement
+        if stat != "settle":
+            ema_prev = stat_rows[0][1]
+            for stat_row in stat_rows[1:]:
+                ema_cur =   ema_prev * (1 - EMA_FACTOR) + \
+                            stat_row[1] * EMA_FACTOR
+                stat_row[1] = ema_cur
+                ema_prev = ema_cur
+
         self.set_stat(
             stat, 
             {
@@ -215,10 +226,10 @@ class spread_set:
     def vol(self, spreads):
         for _, rows in spreads.items():
             x = [ row[spread_set_row.settle] for row in rows ]
-            x_var = var(MA_PERIODS)
+            x_var = var(WIN_PERIODS)
             for i in range(len(rows)):
                 sigma = sqrt(max(x_var.next(x, i), 0))
-                if i >= MA_PERIODS:
+                if i >= WIN_PERIODS:
                     rows[i][spread_set_row.vol] = sigma
 
 
@@ -249,9 +260,9 @@ class spread_set:
                 x_rtns.append(x_rtn)
                 y_rtns.append(y_rtn)
 
-                if i > MA_PERIODS:
-                    x_0 = x_rtns[i - MA_PERIODS]
-                    y_0 = y_rtns[i - MA_PERIODS]
+                if i > WIN_PERIODS:
+                    x_0 = x_rtns[i - WIN_PERIODS]
+                    y_0 = y_rtns[i - WIN_PERIODS]
 
                     XY -= y_0 * x_0
                     X -= x_0
@@ -265,13 +276,11 @@ class spread_set:
                 
                 # spreads[id] and y[id] should be sync'd
                 # e.g. spreads[id][1][date] == y[id][1][date]
-                if i >= MA_PERIODS:
-                    b = (MA_PERIODS * XY - X * Y) / \
-                        (MA_PERIODS * X2 - X**2)
+                if i >= WIN_PERIODS:
+                    b = (WIN_PERIODS * XY - X * Y) / \
+                        (WIN_PERIODS * X2 - X**2)
                     
                     spreads[id][i][spread_set_row.beta] = b
-
-        # TODO: average by dte here
 
 
     #   - m_tick = MA(AVG_IS(C_t * (S_t-1 - M)/ABS(C_t * (S_t-1 - M))))
@@ -321,9 +330,9 @@ class spread_set:
         for i in range(len(dls)):
             cur_dl = dls[i]
             cur_tick = ticks_by_dl[cur_dl]
-            if i >= MA_PERIODS:
-                m_ticks[cur_dl] = sum / MA_PERIODS
-                prev_tick = ticks_by_dl[dls[i - MA_PERIODS]]
+            if i >= WIN_PERIODS:
+                m_ticks[cur_dl] = sum / WIN_PERIODS
+                prev_tick = ticks_by_dl[dls[i - WIN_PERIODS]]
                 sum -= prev_tick
             sum += cur_tick
 
@@ -346,9 +355,9 @@ class spread_set:
         for id, rows in y.items():
             x_rtns = []
             y_rtns = []
-            x_var = var(MA_PERIODS)
-            y_var = var(MA_PERIODS)
-            xy_cov = cov(MA_PERIODS)
+            x_var = var(WIN_PERIODS)
+            y_var = var(WIN_PERIODS)
+            xy_cov = cov(WIN_PERIODS)
 
             for i in range(len(rows)):        
                 y_dt = rows[i][0]
@@ -371,7 +380,7 @@ class spread_set:
                 cov_xy = xy_cov.next(x_rtns, y_rtns, i)
                 r_2 = (cov_xy / (x_sigma * y_sigma))**2
 
-                if i >= MA_PERIODS:
+                if i >= WIN_PERIODS:
                     # filter outliers
                     if r_2 <= 1:
                         spreads[id][i][spread_set_row.r_2] = r_2

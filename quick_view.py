@@ -1,16 +1,34 @@
 from dash import Dash
-from dash_core_components import Graph
-from dash_html_components import Div, Table, Tr, Td
+from dash.dependencies import Input, Output, State
+from dash_core_components import Graph, Dropdown
+from dash_html_components import \
+Div, Table, Tr, Td, P, Button, Textarea
 from data.contracts.contract_store import contract_store
 from data.spread_set import spread_set_index
 from data.terms.terms_store import terms_store
 from datetime import datetime, date, timedelta
-from json import loads
+from json import loads, dumps
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sqlite3 import connect
 from numpy import array
 
+# global variables
+
+
+app = Dash(__name__)
+scan_defs = {}
+scan_data = {}
+
+
+# functions
+
+
+# add a subplot for a given statistic
+#   fig:            settlemnt graph object
+#   spread_set:     data for fig
+#   plot_def:       [ str: stat_name, str: color, int: row ]
+#   x_lim:          max of days-listed domain
 def stat_subplot(fig, spread_set, plot_def, x_lim):
     stat = plot_def[0]
     color = plot_def[1]
@@ -43,8 +61,9 @@ def stat_subplot(fig, spread_set, plot_def, x_lim):
         col = 1
     )
 
-
-def create_row(spread_set, stats):
+# plot settlement values every spread in a related set,
+# along with subplots for statistics of interest
+def create_graph(spread_set, stats):
     rows = spread_set.get_rows()
     spreads = {}
 
@@ -73,8 +92,8 @@ def create_row(spread_set, stats):
     fig.update_layout(
         #xaxis_title = "days_listed",
         #yaxis_title = "settle",
-        width = 1200,
-        height = 800
+        width = 800,
+        height = 600
     )
 
     # settlement traces
@@ -130,25 +149,148 @@ def create_row(spread_set, stats):
     for plot_def in plot_defs:
         stat_subplot(fig, spread_set, plot_def, max_dl)
 
-    # construct row
-    settle_graph = Graph(
-        id = str(spread_set.get_id()),
+    # construct graph
+    graph = Graph(
+        id = spread_set.get_id(),
         figure = fig
-    )
-    settle_cell = Td([settle_graph])
-    row = Tr([settle_cell])
+    )           
     
-    return row
+    return graph
 
+
+# update scan as input changes
+@app.callback(
+    State("name", "value"),
+    State("contract", "value"),
+    State("type", "value"),
+    State("date_range", "value"),
+    State("result_limit", "value"),
+    State("legs", "value"),
+    State("filters", "value"),
+    Input("start", "n_clicks"),
+    Output("results", "value")
+)
+def start_scan():
+    pass
+
+
+# delete selected scan
+@app.callback(
+    Input("save", "nclicks"),
+    State("save_delete", "value")
+)
+def delete_scan():
+    pass
+
+
+# save current scan under name in save_delete field
+@app.callback(
+    Input("delete", "nclicks"),
+    State("save_delete", "value")   
+)
+def save_scan():
+    pass
+
+
+# generate and store graph objects for
+# selected spread data
+@app.callback(
+    Input("to_view", "value"),
+    Output("viewing", "children")
+)
+def generate_figures():
+    pass
+
+
+# view selected data
+@app.callback(
+    Input("viewing", "value"),
+    Output("plots", "children")
+)
+def update_graph():
+    pass
+
+
+def get_layout(scans):
+    return Table([
+        Tr([
+            # controls
+            Td([ 
+                Table([
+                    Tr([
+                        Td("scan"),
+                        Td(Dropdown(id = "scan", options = scans))
+                    ]),
+                    Tr([
+                        Td([
+                            Button(id = "save", children = "save"),
+                            Button(id = "delete", children = "delete")
+                        ]),
+                        Td(Input(id = "save_delete", type = "text"))
+                    ]),
+                    Tr([
+                        Td("name"),
+                        Td(Input(id = "name", type = "text"))
+                    ]),
+                    Tr([
+                        Td("contract"),
+                        Td(Input(id = "contract", type = "text"))
+                    ]),
+                    Tr([
+                        Td("type"),
+                        Td(Input(id = "type", type = "text"))
+                    ]),
+                    Tr([
+                        Td("date_range"),
+                        Td(Input(id = "date_range", type = "text"))
+                    ]),
+                    Tr([
+                        Td("result_limit"),
+                        Td(Input(id = "result_limit", type = "text"))
+                    ]),
+                    Tr([
+                        Td("legs"),
+                        Td(Textarea(id = "legs", rows = 15))
+                    ]),
+                    Tr([
+                        Td("filters"),
+                        Td([
+                            Textarea(id = "filters", rows = 15)
+                        ])
+                    ]),
+                    Tr([
+                        Td("results"),
+                        Td(Textarea(id = "scan_results", rows = 30))
+                    ]),
+                    Tr([
+                        Td(Button(id = "start", children = "start")),
+                        Td([])
+                    ]),
+                    Tr([
+                        Td("to_view"),
+                        Td([
+                            Textarea(id = "to_view", rows = 15)
+                        ])
+                    ]),
+                    Tr([
+                        Td("viewing"),
+                        Td(Dropdown(id = "viewing"))
+                    ])
+                ], id = "controls")
+            ], width = 400),
+            # plots
+            Td(Div(id = "plots"),width = 800)
+        ])
+    ])
 
 if __name__=="__main__":
     with open('./config.json') as fd:
-        app = Dash(__name__)
-        rows = []
-
+        # load config
         config = loads(fd.read())
         cur = connect(config["db_path"])
 
+        # scan
+        '''
         mode = "terms"
 
         if mode == "contract":
@@ -188,13 +330,24 @@ if __name__=="__main__":
         for spread_set in spread_sets:
             spread_set.add_stats(stats)
 
+        # create graphs
+        graphs = []
         for spread_set in spread_sets:
-            rows.append(create_row(spread_set, stats))
+            graphs.append(create_graph(spread_set, stats))
+        '''
 
-        table = Table(rows)
-        app.layout = Div(children = [ table ])
+        # populate layout with saved scans
+        scans = [
+            { "label": k, "value": k } 
+            for k, v in config["scans"]
+        ]
+        app.layout = get_layout(scans)
 
-        elapsed = datetime.now() - start
-        print(len(spread_sets), elapsed)
+        # set scan_defs
+        for k, v in scans:
+            scan_defs[k] = v
+
+        #elapsed = datetime.now() - start
+        #print(len(spread_sets), elapsed)
 
         app.run_server(debug = True)
