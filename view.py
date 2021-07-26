@@ -97,7 +97,7 @@ def create_graph(spread_set, stats):
     fig.update_layout(
         #xaxis_title = "days_listed",
         #yaxis_title = "settle",
-        width = 800,
+        width = 1000,
         height = 600
     )
 
@@ -353,10 +353,11 @@ def execute_current_scan(start):
 )
 def save_scan(save, save_delete):
     scan_defs[save_delete] = current_scan
-    config["scans"] = [ dumps(scan) for _, scan in scan_defs.items() ]
     
     with open('./config.json', "w") as fd:
-        fd.write(dumps(config))
+        fd.write(
+            dumps(config, indent = 2, ensure_ascii = False)
+        )
 
     return None
 
@@ -374,7 +375,7 @@ def delete_scan(delete, save_delete):
 
     for name, dfn in scan_defs.items():
         if name != save_delete:
-            scans.append(dumps(dfn))
+            scans.append(dfn)
             scan_options.append(
                 {
                     "label": name,
@@ -385,7 +386,7 @@ def delete_scan(delete, save_delete):
     config["scans"] = scans
     
     with open('./config.json', "w") as fd:
-        fd.write(dumps(config))
+        fd.write(dumps(config, indent = 2, ensure_ascii = False))
 
     return scan_options
 
@@ -502,7 +503,7 @@ def get_layout(scans):
                 ], id = "controls")
             ], style = { "width": 400 }),
             # plots
-            Td(Div(id = "plots"), style = { "width": 800 })
+            Td(Div(id = "plots"), style = { "width": 1000 })
         ]),
         Tr([
             # targets for callbacks with no output
