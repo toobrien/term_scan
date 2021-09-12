@@ -18,6 +18,7 @@ class spread_set_row(IntEnum):
     m_tick = 7
     beta = 8
     r_2 = 9
+    rank = 10
 
 spread_set_index = {
     "date": 0,
@@ -29,7 +30,8 @@ spread_set_index = {
     "vol": 6,
     "m_tick": 7,
     "beta": 8,
-    "r_2": 9
+    "r_2": 9,
+    "rank": 10
 }
 
 WIN_PERIODS = 30                    # width of sliding window for stats
@@ -153,6 +155,11 @@ class spread_set:
             if "beta" in stats: self.beta(x, y, spreads)
             if "r_2" in stats: self.r_2(x, y, spreads)
         
+        # 0 = lowest settle price for the given day
+        # 1 = highest settle price for the given day
+        if "rank" in stats:
+            self.rank(dl)
+
         # rows are fully populated, so add summary statistics
         for stat in stats: self.add_stat(stat, dl)
 
@@ -385,6 +392,23 @@ class spread_set:
                     if r_2 <= 1:
                         spreads[id][i][spread_set_row.r_2] = r_2
 
+    # 0 = spread with lowest settlement for the day
+    # 1 = spread with highest settlement for the day
+    def rank(self, dl):
+        for _, rows in dl.items():
+            by_settle = sorted(
+                rows,
+                key = lambda r : r[spread_set_row.settle]
+            )
+
+            num_rows = len(by_settle)
+            
+            if num_rows > 1:
+                for i in range(num_rows):
+                    by_settle[i][spread_set_row.rank] = i / (num_rows - 1)
+            else:
+                by_settle[0][spread_set_row.rank] = 1
+
 
     # input:    spread_row
     # output:   spread_set_row
@@ -405,7 +429,8 @@ class spread_set:
                     None,   # vol
                     None,   # m_tick
                     None,   # beta
-                    None    # r_2
+                    None,   # r_2
+                    None    # rank
                 ]
             )
 

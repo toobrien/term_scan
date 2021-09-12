@@ -325,12 +325,10 @@ def execute_current_scan(start):
     # clear previous results
     global match_data
     match_data = {}
-
+    
     # execute current_scan, store results
-    response = scan(
-        current_scan, 
-        connect(config["db_path"])
-    ).execute()
+    db = connect(config["db_path"])
+    response = scan(current_scan, db).execute()
     
     matches = []
 
@@ -339,6 +337,8 @@ def execute_current_scan(start):
         spread_set = result["data"]
         match_data[match] = spread_set
         matches.append(match)
+
+    db.close()
 
     # populate matches textarea for user editing
     return "\n".join(matches)
@@ -409,6 +409,7 @@ def generate_graphs(generate_graphs, matches):
         f["type"] 
         for f in current_scan["filters"]
         if f["type"] != "settle"
+        and f["type"] != "rank"
     ]
 
     # generate, store figures and set viewing options

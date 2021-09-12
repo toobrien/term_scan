@@ -1,41 +1,29 @@
 {
-    "db_path": "../viewer/srf.db",
-    "scans": [
+  "db_path": "../viewer/srf.db",
+  "scans": [
+    {
+      "name": "default",
+      "contract": "LN",
+      "type": "calendar",
+      "data_range": [
+        "2005-01-01",
+        "2025-01-01"
+      ],
+      "result_limit": null,
+      "legs": [
+        [ "F", "Z", "0", "3", "A"],
+        [ "+1", "Z", "+0", "3", "B" ]
+      ],
+      "filters": [
         {
-            "name": "zm_2",
-            "contract": "SM",
-            "type": "calendar",
-            "data_range": [ "2010-01-01", "2025-01-01" ],
-            "result_limit": null,
-            "legs": [
-                [ "N", "Z", "0", "3", "A"],
-                [ "+1", "Z", "+0", "3", "B"]
-            ],
-            "filters": [
-                {
-                    "type": "settle",
-                    "mode": "abs",
-                    "range": [ [ -10, -5 ], [ 20, 100 ] ]
-                }
-            ]
-        },
-        {
-            "name": "ge_2",
-            "contract": "ED",
-            "type": "sequence",
-            "data_range": [ "2000-01-01", "2035-01-01" ],
-            "result_limit": 25,
-            "legs": [
-                [ "0", "119", "A" ],
-                [ "+1", "119", "B" ]
-            ],
-            "filters": [
-                {
-                    "type": "settle",
-                    "mode": "std",
-                    "range": [ [ -2, -1], [ 1, 2] ]
-                }
-            ]
+          "type": "rank",
+          "mode": "abs",
+          "range": [
+            [ 0.0, 0.1 ],
+            [ 0.9, 1.0 ]
+          ]
         }
-    ]
+      ]
+    }
+  ]
 }
